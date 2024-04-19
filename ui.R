@@ -8,15 +8,16 @@ shinyUI(
     dashboardSidebar(
       sidebarMenu(
         menuItem("Importante", tabName = "importante", icon = icon("circle-info")),
-        # menuItem("Chequeo de cartografía", tabName = "check", icon = icon("circle-check")),
-        menuItem("Inputs", tabName = "inputs_check", icon = icon("file-import")),
+        menuItem("Ayuda cartográfica", tabName = "ayuda", icon = icon("circle-check")),
+        menuItem("Inputs y outputs", tabName = "inputs_outputs", icon = icon("file-import")),
         menuItem("Insumos Cartográficos", id = "info", icon = icon("layer-group"),
-          menuSubItem("Accesos al Predio", tabName = "uso", icon = icon("route")),
-          menuSubItem("Cartografía base", tabName = "uso", icon = icon("water"))
+          menuSubItem("Accesos al Predio", tabName = "access", icon = icon("route")),
+          menuSubItem("Cartografía base", tabName = "carto", icon = icon("water"))
         )
       )
     ),
     dashboardBody(
+      use_bs_popover(),
       shinyEffects::setShadow(class = "dropdown-menu"),
       shinyEffects::setShadow(class = "box"),
       tags$head(tags$style(HTML(".small-box {height: 120px;}"))),
@@ -35,17 +36,27 @@ shinyUI(
           )
         ),
         tabItem(
-          tabName = "inputs_check",
+          tabName = "ayuda",
           fluidRow(
             column(width = 5,
               box(
                 width = 12,
-                title = "Input PAS 148",
+                title = "Inputs",
                 solidHeader = T,
                 status = "success",
                 leer_sfUI("linea_base", "Ingrese cartografía de linea base"),
                 leer_sfUI("obras", "Ingrese shp de obras"),
-                leer_sfUI("predios", "Ingrese shp de predios")
+                leer_sfUI("predios", "Ingrese shp de predios"),
+                leer_sfUI("Hidrografía", "Ingrese shp de hidrografía"),
+                leer_sfUI("Caminos", "Ingrese shp de red vial"),
+                fileInput(
+                  inputId = "dem",
+                  label = "DEM",
+                  multiple = F,
+                  accept = c(".tif"),
+                  buttonLabel = "Ingresar",
+                  placeholder = "Archivo no seleccionado"
+                )
               ),
               box(
                 width = 12,
@@ -70,7 +81,7 @@ shinyUI(
                 pickerInput(
                   inputId = "select_field_order",
                   label = "Agregue el o los campos a incluir en el orden (Opcional)",
-                  choices = c(NA), #Agregar updatePickerInput() en el server como un reactivo al shp para ordenar
+                  choices = c(NULL), # Agregar en updatePickerInput() en el server como un reactivo al shp para ordenar
                   options = list(title = "Selecciona una opción")
                 ),
                 hr(),br(),
@@ -97,8 +108,35 @@ shinyUI(
               )
             )
           )
+        ),
+        tabItem(
+          tabName = "access",
+          fluidRow(
+            box(
+              width = 6,
+              title = "Inputs finales",
+              solidHeader = T,
+              status = "success",
+              leer_sfUI("cart_area", "Ingrese shapefile de areas de corta") %>% 
+                shinyInput_label_embed(
+                  shiny_iconlink() %>%
+                    bs_embed_popover(
+                      title = "Letter", content = "Choose a favorite", placement = "left"
+                    )
+                ),
+              leer_sfUI("cart_rodales", "Ingrese shapefile de rodales")
+            ),
+            box(
+              width = 6,
+              title = "Outputs",
+              solidHeader = T,
+              status = "success",
+              h3("Cartografía digital"),
+              bs_button("obtener cartografía", button_type = "success")
+            )
+          )
         )
-      )
-    )
-  )
+      )# fin tabitems
+    ) # fin dashboardbody
+  )# fin dashboardpage
 )

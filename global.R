@@ -15,9 +15,12 @@ library(openxlsx)
 library(igraph)
 library(stringr)
 library(stringi)
+library(stars)
+library(stars)
 
 source("./Modules/leer_sf.R")
 source("./functions/Accordion_info.R")
+source("./functions/st_order.R")
 
 # comunas <- read_sf("n:/Dashboard PAS 150/COMUNAS/COMUNAS_v1.shp")
 
@@ -34,3 +37,5 @@ group_by_distance <- function(x, distance){
   g = igraph::graph_from_adjacency_matrix(connected)
   return(components(g)$membership)
 }
+install.packages("stars")
+install.packages("starsExtra")

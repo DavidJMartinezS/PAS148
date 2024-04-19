@@ -4,11 +4,18 @@
 leer_sfUI <- function(id, ...){
   ns <- NS(id)
   
-  fileInput(ns("sf_file"),..., accept=c('.shp','.dbf','.shx',".prj"), multiple=TRUE)
+  fileInput(
+    ns("sf_file"),
+    ..., 
+    accept = c('.shp','.dbf','.shx',".prj"), 
+    multiple = TRUE,
+    buttonLabel = "Seleccionar",
+    placeholder = "Archivo no seleccionado"
+  )
 }
 
 ## Server
-leer_sf <- function(input, output, session){
+leer_sf <- function(input, output, session, fx = NULL){
   return(
     reactive({
       req(input$sf_file)
@@ -20,12 +27,18 @@ leer_sf <- function(input, output, session){
           paste0(tempdirname, "/", shpdf$name[i])
         )
       }
-      map <- read_sf(paste(tempdirname, shpdf$name[grep(pattern="*.shp$", shpdf$name)], sep="/")) %>% 
-        st_zm() %>% 
-        mutate(Sup_ha = st_area(geometry) %>% set_units(ha) %>% round(2)) %>% 
-        drop_units()
-      map
+      if (is.null(fx)){
+        shp <- read_sf(paste(tempdirname, shpdf$name[grep(pattern="*.shp$", shpdf$name)], sep="/")) %>% 
+          st_zm() %>% 
+          st_make_valid()
+      } else {
+        stopifnot(is.function(fx), "debe ser función")
+        shp <- read_sf(paste(tempdirname, shpdf$name[grep(pattern="*.shp$", shpdf$name)], sep="/")) %>% 
+          st_zm() %>% 
+          st_make_valid() %>% 
+          fx
+      }
+      shp
     })
   )
 }
-

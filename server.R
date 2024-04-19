@@ -18,5 +18,9 @@ shinyServer(function(input,output,session){
   obras <- callModule(module = leer_sf, id = "obras")
   predio <- callModule(module = leer_sf, id = "predio")
   
+  predio <- callModule(module = leer_sf, id = "predio")
+  predio <- callModule(module = leer_sf, id = "predio")
+  
+  
   
 })
