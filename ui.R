@@ -9,7 +9,7 @@ shinyUI(
       sidebarMenu(
         menuItem("Importante", tabName = "importante", icon = icon("circle-info")),
         menuItem("Ayuda cartográfica", tabName = "ayuda", icon = icon("circle-check")),
-        menuItem("Inputs y outputs", tabName = "inputs_outputs", icon = icon("file-import")),
+        # menuItem("Inputs y outputs", tabName = "inputs_outputs", icon = icon("file-import")),
         menuItem("Insumos Cartográficos", id = "info", icon = icon("layer-group"),
           menuSubItem("Accesos al Predio", tabName = "access", icon = icon("route")),
           menuSubItem("Cartografía base", tabName = "carto", icon = icon("water"))
@@ -17,6 +17,7 @@ shinyUI(
       )
     ),
     dashboardBody(
+      shinyjs::useShinyjs(),
       use_bs_popover(),
       shinyEffects::setShadow(class = "dropdown-menu"),
       shinyEffects::setShadow(class = "box"),
@@ -44,32 +45,23 @@ shinyUI(
                 title = "Inputs",
                 solidHeader = T,
                 status = "success",
-                leer_sfUI("linea_base", "Ingrese cartografía de linea base"),
-                leer_sfUI("obras", "Ingrese shp de obras"),
-                leer_sfUI("predios", "Ingrese shp de predios"),
-                leer_sfUI("Hidrografía", "Ingrese shp de hidrografía"),
-                leer_sfUI("Caminos", "Ingrese shp de red vial"),
+                leer_sfUI("linea_base", "Ingrese cartografía de linea base") %>% 
+                  add_help_text(title = "Campos minimos requeridos","'Tipo_for', 'Subtipo_fo', 'Regulacion'"),
+                leer_sfUI("obras", "Ingrese shp de obras") %>% 
+                  add_help_text(title = "Campos minimos requeridos","'Obra','Tipo'"),
+                leer_sfUI("predios", "Ingrese shp de predios") %>% 
+                  add_help_text(title = "Campos minimos requeridos","'Nom_Predio', 'Rol', 'Propietario'"),
+                leer_sfUI("hidro", "Ingrese shp de hidrografía") %>% 
+                  add_help_text(title = "Campos minimos requeridos","'Nombre', 'Tipo', 'Permanencia'"),
                 fileInput(
                   inputId = "dem",
                   label = "DEM",
                   multiple = F,
-                  accept = c(".tif"),
-                  buttonLabel = "Ingresar",
+                  accept = c(".tif",".png"),
+                  buttonLabel = "Seleccionar",
                   placeholder = "Archivo no seleccionado"
-                )
-              ),
-              box(
-                width = 12,
-                solidHeader = T,
-                status = "success",
-                title = "Chequeo de cartografía",
-                leer_sfUI("sf_check","Ingrese Shapefile"),
-                pickerInput(
-                  inputId = "select_sf_check",
-                  label = "Seleccione la capa a la que corresponde el shapefile",
-                  choices = c("Área","Caminos","Curvas de nivel","Hidrografía","Límite predial","Parcelas","Puntos de referencia","Rangos de pendiente","Rodales","Suelos"),
-                  options = list(title = "Selecciona una opción")
-                )
+                ) %>% 
+                  add_help_text("Peso del archivo debe ser menor a XX Mb")
               ),
               box(
                 width = 12,
@@ -80,21 +72,49 @@ shinyUI(
                 leer_sfUI("sf_order","Ingrese Shapefile que desea ordenar"),
                 pickerInput(
                   inputId = "select_field_order",
-                  label = "Agregue el o los campos a incluir en el orden (Opcional)",
+                  label = "(Opcional) Agrupar por:",
                   choices = c(NULL), # Agregar en updatePickerInput() en el server como un reactivo al shp para ordenar
-                  options = list(title = "Selecciona una opción")
+                  options = list(title = "Selecciona una opción"),
+                  width = "auto"
                 ),
-                hr(),br(),
-                h3("Generar áreas de corta"),
-                switchInput(
-                  value = TRUE,
-                  label = "Incluir CUS",
-                  labelWidth = "80px",
-                  inputId = "Id013",
-                  onLabel = "Si",
-                  offLabel = "No",
-                  onStatus = "success", 
-                  offStatus = "danger"
+                actionBttn(
+                  inputId = "apply_order",
+                  label = "Ordenar capa",
+                  style = "unite",
+                  color = "success"
+                ),
+                downloadButton(
+                  "down_sf_order",
+                  "Descargar capa",
+                  style = "margin-top:20px; color: #fff; background-color: #27ae60; border-color: #fff"
+                ),
+                hr(), hr(),
+                h3("Generar rodales y áreas de corta"),
+                checkboxGroupButtons(
+                  inputId = "grpup_area",
+                  label = "Divdir areas por:",
+                  choices = c("Tipo forestal", "Subtipo forestal", "CUS"),
+                  selected = c("Tipo forestal", "Subtipo forestal", "CUS"),
+                  checkIcon = list(
+                    yes = tags$i(class = "fa fa-check-square", 
+                                 style = "color: green"),
+                    no = tags$i(class = "fa fa-square-o", 
+                                style = "color: green"))
+                ),
+                actionBttn(
+                  inputId = "get_area",
+                  label = "Generar areas de corta", 
+                  style = "unite",
+                  color = "success"
+                ),
+                hr(), hr(),
+                h3("Chequeo de cartografía"),
+                leer_sfUI("sf_check","Ingrese Shapefile"),
+                pickerInput(
+                  inputId = "select_sf_check",
+                  label = "Seleccione la capa a la que corresponde el shapefile",
+                  choices = c("Área","Caminos","Curvas de nivel","Hidrografía","Límite predial","Parcelas","Puntos de referencia","Rangos de pendiente","Rodales","Suelos"),
+                  options = list(title = "Selecciona una opción")
                 )
               )
             ),
@@ -104,7 +124,8 @@ shinyUI(
                 width = 12,
                 solidHeader = T,
                 status = "success",
-                title = "Mapa de áreas"
+                title = "Mapa de áreas",
+                leafletOutput("leaf_inputs")
               )
             )
           )
@@ -118,12 +139,7 @@ shinyUI(
               solidHeader = T,
               status = "success",
               leer_sfUI("cart_area", "Ingrese shapefile de areas de corta") %>% 
-                shinyInput_label_embed(
-                  shiny_iconlink() %>%
-                    bs_embed_popover(
-                      title = "Letter", content = "Choose a favorite", placement = "left"
-                    )
-                ),
+                add_help_text("Área de corta definitiva"),
               leer_sfUI("cart_rodales", "Ingrese shapefile de rodales")
             ),
             box(
