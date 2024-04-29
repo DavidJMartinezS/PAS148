@@ -1,8 +1,8 @@
-add_help_text <- function(x, text,...){
+add_help_text <- function(x, ...){
   x %>% shinyInput_label_embed(
     shiny_iconlink() %>%
-      bs_embed_popover(
-        content = text,..., placement = "left"
+      bs_embed_tooltip(
+        ..., placement = "left"
       )
   )
 }

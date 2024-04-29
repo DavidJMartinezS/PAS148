@@ -42,29 +42,6 @@ shinyUI(
             column(width = 5,
               box(
                 width = 12,
-                title = "Inputs",
-                solidHeader = T,
-                status = "success",
-                leer_sfUI("linea_base", "Ingrese cartografía de linea base") %>% 
-                  add_help_text(title = "Campos minimos requeridos","'Tipo_for', 'Subtipo_fo', 'Regulacion'"),
-                leer_sfUI("obras", "Ingrese shp de obras") %>% 
-                  add_help_text(title = "Campos minimos requeridos","'Obra','Tipo'"),
-                leer_sfUI("predios", "Ingrese shp de predios") %>% 
-                  add_help_text(title = "Campos minimos requeridos","'Nom_Predio', 'Rol', 'Propietario'"),
-                leer_sfUI("hidro", "Ingrese shp de hidrografía") %>% 
-                  add_help_text(title = "Campos minimos requeridos","'Nombre', 'Tipo', 'Permanencia'"),
-                fileInput(
-                  inputId = "dem",
-                  label = "DEM",
-                  multiple = F,
-                  accept = c(".tif",".png"),
-                  buttonLabel = "Seleccionar",
-                  placeholder = "Archivo no seleccionado"
-                ) %>% 
-                  add_help_text("Peso del archivo debe ser menor a XX Mb")
-              ),
-              box(
-                width = 12,
                 solidHeader = T,
                 status = "success",
                 title = "Ayudas cartográficas",
@@ -72,7 +49,7 @@ shinyUI(
                 leer_sfUI("sf_order","Ingrese Shapefile que desea ordenar"),
                 pickerInput(
                   inputId = "select_field_order",
-                  label = "(Opcional) Agrupar por:",
+                  label = "Agrupar por (Opcional):",
                   choices = c(NULL), # Agregar en updatePickerInput() en el server como un reactivo al shp para ordenar
                   options = list(title = "Selecciona una opción"),
                   width = "auto"
@@ -83,10 +60,12 @@ shinyUI(
                   style = "unite",
                   color = "success"
                 ),
-                downloadButton(
-                  "down_sf_order",
-                  "Descargar capa",
-                  style = "margin-top:20px; color: #fff; background-color: #27ae60; border-color: #fff"
+                actionBttn(
+                  inputId = "down_shp_order",
+                  label = "Descargar",
+                  icon = icon("download"),
+                  style = "unite",
+                  color = "warning"
                 ),
                 hr(), hr(),
                 h3("Generar rodales y áreas de corta"),
@@ -107,6 +86,13 @@ shinyUI(
                   style = "unite",
                   color = "success"
                 ),
+                actionBttn(
+                  inputId = "down_shp_areas",
+                  label = "Descargar",
+                  icon = icon("download"),
+                  style = "unite",
+                  color = "warning"
+                ),
                 hr(), hr(),
                 h3("Chequeo de cartografía"),
                 leer_sfUI("sf_check","Ingrese Shapefile"),
@@ -115,6 +101,12 @@ shinyUI(
                   label = "Seleccione la capa a la que corresponde el shapefile",
                   choices = c("Área","Caminos","Curvas de nivel","Hidrografía","Límite predial","Parcelas","Puntos de referencia","Rangos de pendiente","Rodales","Suelos"),
                   options = list(title = "Selecciona una opción")
+                ),
+                actionBttn(
+                  inputId = "check_carto",
+                  label = "Chequear", 
+                  style = "unite",
+                  color = "success"
                 )
               )
             ),
@@ -122,10 +114,26 @@ shinyUI(
               width = 7,
               box(
                 width = 12,
+                title = "Inputs",
                 solidHeader = T,
                 status = "success",
-                title = "Mapa de áreas",
-                leafletOutput("leaf_inputs")
+                leer_sfUI("linea_base", "Ingrese cartografía de linea base") %>% 
+                  add_help_text(title = "Campos minimos requeridos:\n'Tipo_for', 'Subtipo_fo', 'Regulacion'"),
+                leer_sfUI("obras", "Ingrese shp de obras") %>% 
+                  add_help_text(title = "Campos minimos requeridos:\n'Obra','Tipo'"),
+                leer_sfUI("predios", "Ingrese shp de predios") %>%
+                  add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'Rol', 'Propietario'"),
+                leer_sfUI("hidro", "Ingrese shp de hidrografía") %>% 
+                  add_help_text(title = "Campos minimos requeridos:\n'Nombre', 'Tipo', 'Permanencia'"),
+                fileInput(
+                  inputId = "dem",
+                  label = "DEM",
+                  multiple = F,
+                  accept = c(".tif",".png"),
+                  buttonLabel = "Seleccionar",
+                  placeholder = "Archivo no seleccionado"
+                ) %>% 
+                  add_help_text("Peso del archivo debe ser menor a XX Mb")
               )
             )
           )

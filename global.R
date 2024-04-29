@@ -4,6 +4,7 @@ library(shinydashboard)
 library(shinydashboardPlus)
 library(shinyEffects)
 library(shinyWidgets)
+library(shinyalert)
 library(shinyjs)
 library(bslib)
 library(bsplus)
@@ -21,7 +22,6 @@ library(leaflet)
 library(leaflet.extras)
 library(leafem)
 library(dipsaus)
-library(downlo)
 
 options(shiny.maxRequestSize=150*1024^2)
 
@@ -29,5 +29,7 @@ source("./Modules/leer_sf.R")
 source("./functions/Accordion_info.R")
 source("./functions/st_order.R")
 source("./functions/functions.R")
+source("./functions/check_carto.R")
 
 # comunas <- read_sf("n:/Dashboard PAS 150/COMUNAS/COMUNAS_v1.shp")
+
