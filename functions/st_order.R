@@ -56,6 +56,6 @@ st_order <- function(x){
 # 
 # areas <- read_sf("c:/Users/dmartinez/Documents/KIMAL PAS SEA/PAS 148/Anexo_11-06.C_PAS_148_Elqui/Apéndice 4. Cartografía/SHP/Area_Elqui.KIMAL.shp") %>% st_zm() %>% arrange(N_a)
 # areas %>% st_order()
-# areas %>% 
-#   group_by(Nom_Predio) %>% 
+# areas %>%
+#   group_by(Nom_Predio) %>%
 #   mutate(N = st_order(geometry))

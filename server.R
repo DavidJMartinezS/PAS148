@@ -17,58 +17,35 @@ shinyServer(function(input,output,session){
     )
   })
   
-  LB <- callModule(module = leer_sf, id = "linea_base", fx = function(x){
+  # Inputs ----
+  LB <- leer_sf(id = "linea_base",fx = function(x){
     x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII"))))
   })
   observeEvent(LB(),{
-    if(!c('Tipo_for', 'Subtipo_fo', 'Regulacion') %in% names(LB())){
-      shinyalert(
-        title = "Listo!", 
-        text = "Shapefile sin los campos requeridos",
-        type = "error",
-        closeOnEsc = T, 
-        showConfirmButton = T,
-        animation = TRUE
-      )
+    if(!all(c('Tipo_for', 'Subtipo_fo', 'Regulacion') %in% names(LB()))){
+      shinyalerta()
     }
   })
-  obras <- callModule(module = leer_sf, id = "obras")
+  obras <- leer_sf(id = "obras", fx = function(x){
+    x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII"))))
+  })
   observeEvent(obras(),{
-    if(!c('Tipo_for', 'Subtipo_fo', 'Regulacion') %in% names(LB())){
-      shinyalert(
-        title = "Listo!", 
-        text = "Shapefile sin los campos requeridos",
-        type = "error",
-        closeOnEsc = T, 
-        showConfirmButton = T,
-        animation = TRUE
-      )
+    if(!all(c('Obra', 'Tipo') %in% names(obras()))){
+      shinyalerta()
     }
   })
-  predios <- callModule(module = leer_sf, id = "predios")
+  predios <- leer_sf(id = "predios")
   observeEvent(predios(),{
-    if(!c('Obra','Tipo') %in% names(LB())){
-      shinyalert(
-        title = "Listo!", 
-        text = "Shapefile sin los campos requeridos",
-        type = "error",
-        closeOnEsc = T, 
-        showConfirmButton = T,
-        animation = TRUE
-      )
+    if(!all(c('Nom_Predio','Rol','Propietario') %in% names(predios()))){
+      shinyalerta()
     }
   })
-  hidro <- callModule(module = leer_sf, id = "hidro")
+  hidro <- leer_sf(id = "hidro", fx = function(x){
+    x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII"))))
+  })
   observeEvent(hidro(),{
-    if(!c('Nombre', 'Tipo', 'Permanencia') %in% names(LB())){
-      shinyalert(
-        title = "Listo!", 
-        text = "Shapefile sin los campos requeridos",
-        type = "error",
-        closeOnEsc = T, 
-        showConfirmButton = T,
-        animation = TRUE
-      )
+    if(!all(c('Nombre', 'Tipo', 'Permanencia') %in% names(hidro()))){
+      shinyalerta()
     }
   })
   DEM <- reactive({
@@ -77,14 +54,45 @@ shinyServer(function(input,output,session){
     names(dem) <- "elev"
     return(dem)
   })
+  
   BN <- reactive({
     req(LB())
     LB() %>% 
       filter(regulacion = "Bosque nativo")
   })
   
+  
+  # Ordenar shapefile ----
+  shp_to_order <- leer_sf(id = "sf_order")
+  observeEvent(shp_to_order(),{
+    updatePickerInput(
+      session = session,
+      inputId = "select_field_order",
+      choices = names(shp_to_order())
+    )
+  })
+  shp_ordered <- reactive({
+    input$apply_order
+    st_order(shp_to_order()) %>% isolate()
+  })
+  observeEvent(input$down_shp_order,{
+    req(shp_ordered())
+    temp_dir <- tempdir()
+    directorio <- reactive({
+      if(all(c("root", "path") %in% names(input$directory))){
+        selected_path <- do.call(file.path, c(roots[input$directory$root], input$directory$path))
+      } else {
+        selected_path <- nullfile()
+      }
+      return(selected_path)
+    })
+    write_sf(shp_ordered(), file.path(temp_dir,paste0(input$sf_order$name,".shp")))
+    
+  })
+  
+  
   # Chequeo de cartografía ----
-  shp_check <- callModule(module = leer_sf, id = "sf_check")
+  shp_check <- leer_sf(id = "sf_check")
   observeEvent(input$check_carto,{
     req(shp_check(), input$select_sf_check)
     check_carto(x = shp_check(), id = input$select_sf_check)

@@ -2,7 +2,10 @@ shinyUI(
   dashboardPage(
     skin = "green",
     dashboardHeader(
-      title = "PAS 148",
+      title = tagList(
+        span(class = "logo-lg", "PAS 148"),
+        img(src = "./logo.png")
+      ),
       userOutput("user")
     ),
     dashboardSidebar(
@@ -50,21 +53,23 @@ shinyUI(
                 pickerInput(
                   inputId = "select_field_order",
                   label = "Agrupar por (Opcional):",
+                  multiple = T,
                   choices = c(NULL), # Agregar en updatePickerInput() en el server como un reactivo al shp para ordenar
-                  options = list(title = "Selecciona una opción"),
-                  width = "auto"
+                  options = list(title = "Selecciona una opción")
                 ),
                 actionBttn(
                   inputId = "apply_order",
                   label = "Ordenar capa",
                   style = "unite",
+                  size = "sm",
                   color = "success"
                 ),
                 actionBttn(
                   inputId = "down_shp_order",
-                  label = "Descargar",
+                  label = NULL,
                   icon = icon("download"),
-                  style = "unite",
+                  style = "material-circle",
+                  size = "sm",
                   color = "warning"
                 ),
                 hr(), hr(),
@@ -84,13 +89,15 @@ shinyUI(
                   inputId = "get_area",
                   label = "Generar areas de corta", 
                   style = "unite",
+                  size = "sm",
                   color = "success"
                 ),
                 actionBttn(
                   inputId = "down_shp_areas",
-                  label = "Descargar",
+                  label = NULL,
                   icon = icon("download"),
-                  style = "unite",
+                  style = "material-circle",
+                  size = "sm",
                   color = "warning"
                 ),
                 hr(), hr(),
@@ -146,9 +153,10 @@ shinyUI(
               title = "Inputs finales",
               solidHeader = T,
               status = "success",
-              leer_sfUI("cart_area", "Ingrese shapefile de areas de corta") %>% 
-                add_help_text("Área de corta definitiva"),
-              leer_sfUI("cart_rodales", "Ingrese shapefile de rodales")
+              leer_sfUI("cart_area", "Ingrese shapefile de areas de corta"),
+              leer_sfUI("cart_rodales", "Ingrese shapefile de rodales"),
+              leer_sfUI("cart_predios", "Ingrese shapefile de limites prediales"),
+              textInput("NOMPREDIO", "Ingrese nombre sufijo para el archivo")
             ),
             box(
               width = 6,
