@@ -32,4 +32,9 @@ shinyalerta <- function(){
   )
 }
 
-down_shp <- function(shp,temp)
+down_zip_shp <- function(shp,temp){
+  list_files <- list.files(temp_dir,
+                           ".dbf$|.prj$|.shp$|.shx$",
+                           full.names = TRUE)
+  zip_file <- file.path(temp_dir, "Compilado_Carto_digital.zip")
+}

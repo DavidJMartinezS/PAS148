@@ -64,6 +64,7 @@ shinyServer(function(input,output,session){
   
   # Ordenar shapefile ----
   shp_to_order <- leer_sf(id = "sf_order")
+  
   observeEvent(shp_to_order(),{
     updatePickerInput(
       session = session,
@@ -71,25 +72,37 @@ shinyServer(function(input,output,session){
       choices = names(shp_to_order())
     )
   })
-  shp_ordered <- reactive({
-    input$apply_order
-    st_order(shp_to_order()) %>% isolate()
-  })
-  observeEvent(input$down_shp_order,{
-    req(shp_ordered())
-    temp_dir <- tempdir()
-    directorio <- reactive({
-      if(all(c("root", "path") %in% names(input$directory))){
-        selected_path <- do.call(file.path, c(roots[input$directory$root], input$directory$path))
-      } else {
-        selected_path <- nullfile()
-      }
-      return(selected_path)
-    })
-    write_sf(shp_ordered(), file.path(temp_dir,paste0(input$sf_order$name,".shp")))
-    
+  
+  shp_ordered <- eventReactive(input$apply_order,{
+    req(shp_to_order())
+    shp_to_order() %>% 
+      mutate(ID_ord = st_order(geometry)) 
   })
   
+  observeEvent(input$apply_order,{
+    req(shp_ordered())
+    shinyalert(
+      title = "Listo", 
+      text = "Su shapefile ha sido ordenado",
+      type = "success",
+      timer = 1000,
+      animation = TRUE
+    )
+  })
+  
+  output$downloadData <- downloadHandler( ## Solucionar problema para descargar
+    filename = function() {
+      "shp_ord.zip"
+    },
+    content = function(file) {
+      temp_dir <- tempdir()
+      write_sf(shp_to_order(), file.path(temp_dir,"asd.shp"))
+      list_files <- list.files(temp_dir,
+                               ".dbf$|.prj$|.shp$|.shx$",
+                               full.names = TRUE)
+      zip::zipr(zipfile = file, files = Sys.glob(list_files))
+    }
+  )
   
   # Chequeo de cartografía ----
   shp_check <- leer_sf(id = "sf_check")
@@ -98,10 +111,6 @@ shinyServer(function(input,output,session){
     check_carto(x = shp_check(), id = input$select_sf_check)
   })
 })
-
-
-
-
 
 
 

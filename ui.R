@@ -4,7 +4,14 @@ shinyUI(
     dashboardHeader(
       title = tagList(
         span(class = "logo-lg", "PAS 148"),
-        img(src = "./logo.png")
+        img(src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAYFBMVEXWx7jXyLnYybrOwLGyp5upnpTQwrPLva/BtKejmY5oY19TUU9NTEpsaGOck4k/Pz88PD04OTo0NTdiXlssLzK+sKR0bmkxMzWPh39GRkV8dm+GfneMg3xZVlS4rKDfz78rckUCAAAA1UlEQVR4AbTSVQKEIBAAUGbEoWs2bL3/LRc/rc81qEeD+P8DiAg1gjtqZCsbJKWvRsY676yRwWk8mYgpF+biX/79OaMsOQVjvimn7oRA35J6gQhxuGIzZLsPBWrMF1RcJoKawniDXZlrvGO6YimjggekJfsVAeCK9YklO0mkbsYUoELOxbmwXbGq/g6Fu3vETZl+6tsd9RnbKEmQQDEXVnCa7ZiWdUPcPktZCM4bz3mJn09ccmeux9mnzF3HJc0EV431sOtpR3q6JkY2CI8X7IF+oyoAAGbZDRcCw+B1AAAAAElFTkSuQmCC")
+      ),
+      tags$li(class = "dropdown",
+              id = "logo",
+              tags$a(tags$img(height = "40px",
+                              src="https://geobiota.com/img/logo-header.svg")
+              ),
+              tags$style(css)
       ),
       userOutput("user")
     ),
@@ -64,10 +71,9 @@ shinyUI(
                   size = "sm",
                   color = "success"
                 ),
-                actionBttn(
-                  inputId = "down_shp_order",
+                downloadBttn(
+                  outputId = "down_shp_order",
                   label = NULL,
-                  icon = icon("download"),
                   style = "material-circle",
                   size = "sm",
                   color = "warning"

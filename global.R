@@ -5,6 +5,7 @@ library(shinydashboardPlus)
 library(shinyEffects)
 library(shinyWidgets)
 library(shinyalert)
+library(shinybusy)
 library(shinyjs)
 library(bslib)
 library(bsplus)
@@ -22,6 +23,7 @@ library(leaflet)
 library(leaflet.extras)
 library(leafem)
 library(dipsaus)
+library(zip)
 
 options(shiny.maxRequestSize=150*1024^2)
 
@@ -33,3 +35,17 @@ source("./functions/check_carto.R")
 
 # comunas <- read_sf("n:/Dashboard PAS 150/COMUNAS/COMUNAS_v1.shp")
 
+css <- HTML(
+  "/* move logo to center */
+    #logo {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+    /* remove hover effect */
+    #logo > a:hover {
+        background-color: transparent !important;
+        color: transparent !important;
+    }"
+)

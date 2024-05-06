@@ -49,9 +49,9 @@ st_order <- function(x){
 
 #### EXAMPLES ####
 
-# predios <- read_sf("c:/Users/dmartinez/Documents/KIMAL PAS SEA/PAS 148/Anexo_11-06.C_PAS_148_Elqui/Apéndice 4. Cartografía/SHP/Limite_Predial_Elqui.KIMAL.shp") %>% st_zm() 
+# predios <- read_sf("c:/Users/dmartinez/Documents/KIMAL PAS SEA/PAS 148/Anexo_11-06.C_PAS_148_Elqui/Apéndice 4. Cartografía/SHP/Limite_Predial_Elqui.KIMAL.shp") %>% st_zm()
 # st_order(predios)
-# predios %>% 
+# predios %>%
 #   mutate(N_Predio = st_order(geometry))
 # 
 # areas <- read_sf("c:/Users/dmartinez/Documents/KIMAL PAS SEA/PAS 148/Anexo_11-06.C_PAS_148_Elqui/Apéndice 4. Cartografía/SHP/Area_Elqui.KIMAL.shp") %>% st_zm() %>% arrange(N_a)
