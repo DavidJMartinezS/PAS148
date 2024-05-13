@@ -15,7 +15,7 @@ leer_sfUI <- function(id, ...){
 }
 
 # Server
-leer_sf <- function(id, input, output, session, fx = NULL){
+leer_sf <- function(id, crs = NULL, fx = NULL){
   moduleServer(id, function(input, output, session){
     reactive({
       req(input$sf_file)
@@ -27,15 +27,14 @@ leer_sf <- function(id, input, output, session, fx = NULL){
           paste0(tempdirname, "/", shpdf$name[i])
         )
       }
-      if (is.null(fx)){
-        shp <- read_sf(paste(tempdirname, shpdf$name[grep(pattern="*.shp$", shpdf$name)], sep="/")) %>%
-          st_zm() %>%
-          st_make_valid()
-      } else {
-        shp <- read_sf(paste(tempdirname, shpdf$name[grep(pattern="*.shp$", shpdf$name)], sep="/")) %>%
-          st_zm() %>%
-          st_make_valid() %>%
-          fx()
+      shp <- read_sf(paste(tempdirname, shpdf$name[grep(pattern="*.shp$", shpdf$name)], sep="/")) %>%
+        st_zm() %>%
+        st_make_valid()
+      if (!is.null(fx)){
+        shp <- shp %>% fx()
+      } 
+      if (!is.null(crs)){
+        shp <- shp %>% st_transform(crs)
       }
       shp
     })
