@@ -1,55 +1,87 @@
 info_dashboard <- function(){
   bs_accordion(id = "accordion") %>%
-    bs_set_opts(use_heading_link = T,
-                panel_type = "success") %>%
-    bs_append(title = "Objetivos e instrucciones del Dashboard",
-              content = tags$p("Este Dashboard esta elaborado con el objetivo de apoyar la elaboración del PAS 148, proporcionando 
-                               resultados descargables de capas y tablas (formatos .shp y .xlsx respectivamente).")) %>%
-    bs_append(title = "Inputs y chequeo de datos",
-              content = tags$div(
-                tags$p(
-                  "En esta sección debe cargar los shp de línea base, obras, y predios. Para ingresar los shapefiles, debe cargar
-                  los 4 archivos necesarios para su lectura, que son: 'dbf', 'prj' 'shp' y 'shx'. De otro modo no se reconocerá el
-                  shapefile."
-                ),
-                tags$p("cada uno de estos debe cumplis con los siguientes requisitos:"),
+    bs_set_opts(
+      use_heading_link = T,
+      panel_type = "success"
+    ) %>%
+    bs_append(
+      title = "Objetivos e instrucciones del Dashboard",
+      content = tags$p("Este Dashboard esta elaborado con el objetivo de apoyar la elaboración del PAS 148, proporcionando 
+                               resultados descargables de capas y tablas (formatos .shp y .xlsx respectivamente).")
+    ) %>%
+    bs_append(
+      title = "Consideraciones generales",
+      content = tags$div(
+        tags$ul(
+          tags$li(
+            "Para ingresar los shapefiles, debe cargar los 4 archivos necesarios para su lectura, que son: 'dbf', 'prj' 'shp' y 'shx'. 
+            De otro modo no se reconocerá el shapefile.",
+          ),
+          tags$li(
+            "Los shapefile ingresados deben contener los campos requeridos que se señalan. Deben contener los mismo caracteres que se 
+            indican, pero pueden diferir en los tildes y mayúsculas",
+          ),
+          tags$li(
+            "Por favor ingresar los shapefiles con los campos que se requieren para un buen funcionamiento del dashboard y evitar 
+            errores en la obtención de los resultados",
+          ),
+          tags$li(
+            "No confiar 100% en los resultados, haga siempre un chequeo de los resultados, tanto shapefiles como tablas",
+          )
+        )
+      )
+    ) %>%
+    bs_append(
+      title = "Consideraciones particulares",
+      content = tags$div(
+        tags$ul(
+          tags$li(
+            "Ayudas cartográficas",
+            tags$ul(
+              tags$li(
+                "Ordenar Shapefiles",
                 tags$ul(
-                  tags$li("Shapefile de línea base",
-                          tags$ul(
-                            tags$li(
-                              "Debe presentar al menos los siguientes campos:",
-                              tags$br(),
-                              "Formacion', 'Tipo_Veg', 'Tipo_For', 'Subtipo_Fo', 'Regulacion'"
-                            ),
-                            tags$li(
-                              "Si bien no es necesario que coincidan las mayúsculas o tildes, si lo deben hacer los caractéres alfa-numéricos"
-                            ),
-                            tags$li(
-                              "En el campo 'Regulacion' debe señalar si el poligono corresponde a bosque nativo, formación xerofítica,
-                        o alguna otra formación regulada por la ley"
-                            )
-                          )),
-                  tags$li("Shapefile layout de obras",
-                          tags$ul(
-                            tags$li(
-                              "Cargar un shapefile del compilado de obras. Este debe ser de geometría tipo polígono, el cual debe contener
-                              al menos el campo 'Obra' que señale el nombre de la obra"
-                            )
-                          )),
-                  tags$li("Shapefile de predios",
-                          tags$ul(
-                            tags$li(
-                              "Cargar un shapefile con la información predial de las áreas de intervención.
-                              Este debe contener al menos los siguientes campos:",
-                              tags$br(),
-                              "'Propietario','Nom_Predio','Rol'"
-                            )
-                          )),
+                  tags$li(
+                    "Esta funcion crea una columna llamada 'ID_ord' el cual enumera los poligonos trantando de ordenarlos de 
+                    norte a sur y de oeste considerando la contiguidad de los poligonos"
+                  ),
+                  tags$li(
+                    "Puede crear una enumeración por grupo. Por ejemplo si ingresa un shapefile de áreas de corta y quiere enumerarlas 
+                    por predio, entonces seleccione el campo que indentifica cada predio. Puede agrupar por multiples campos"
+                  ),
+                  tags$li(
+                    "Tener en consideración que los resultados pueden variar mucho dependiendo de la disposición espcial y 
+                    forma de los poligonos. Funciona mejor en poligonos dispuestos de forma más lineal"
+                  )
+                )
+              ),
+              tags$li(
+                "Generar rodales y áreas de corta",
+                tags$ul(
+                  tags$li(
+                    "Esta función es para generar los rodales y áreas de corta a partir de los shp cargador anteriormente.
+                    La app da diferentes opciones de como generar las áreas de corta"
+                  ),
+                  tags$li(
+                    "Puede agrupar o no los rodales de linea base. Si agrupa por Tipo forestal, entonces dos poligonos contiguos 
+                    del mismo tipo forestal serán unidas sus geometrías"
+                  ),
+                  tags$li(
+                    "Si elige la opción de separar por clase de uso de suelo (CUS) entonces un área de corta con 2 CUS será 
+                    dividida por su geometría, de lo contrario no se divide el poligono pero queda el campo con las dos CUS"
+                  )
                 )
               )
-    ) %>%
-    bs_append(title = "Intervención",
-              content = "Para poder ver las tablas en esta pestaña debe haber generado previamente la cartografía digital en la pestaña 'Cartografía digital'") %>%
-    bs_append(title = "Análisis de amenazas",
-              content = "Seleccione los subusos de suelo que no correspondan a vegetación. Incluir en ese listado los terrenos agrícolas. Luego cargue el XLS que genera el equipo de Cartografía, en el cual se encuentran los resultados del análisis en FragStats con las condiciones antes y despues del proyecto en las hojas 1 y 2 del XLS, respectivamente. Al presionar el boton 'Generar análisis', podrá descargar el excel con los resultados y calculos, además de cargarle el contenido de los cuadros que aparecen en la página") 
+            )
+          ),
+          tags$li(
+            "Cartografía"
+          ),
+          tags$li(
+            "Crear puntos de acceso"
+          )
+        )
+      )
+    ) 
 }
+

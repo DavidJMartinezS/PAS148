@@ -20,8 +20,8 @@ shinyUI(
         menuItem("Importante", tabName = "importante", icon = icon("circle-info")),
         menuItem("Ayuda cartográfica", tabName = "ayuda", icon = icon("circle-check")),
         menuItem("Insumos Cartográficos", id = "info", icon = icon("layer-group"),
-          menuSubItem("Accesos al Predio", tabName = "access", icon = icon("route")),
-          menuSubItem("Cartografía base", tabName = "carto", icon = icon("water"))
+          menuSubItem("Cartografía base", tabName = "carto", icon = icon("water")),
+          menuSubItem("Accesos al Predio", tabName = "access", icon = icon("route"))
         )
       )
     ),
@@ -97,6 +97,15 @@ shinyUI(
                   size = "sm",
                   color = "success"
                 ),
+                shinyDirButton(
+                  "directory",
+                  label = NULL,
+                  title = "Select directory",
+                  multiple = FALSE,
+                  icon = icon("folder"),
+                  viewtype = "detail",
+                  style = "padding: 7px 10px; background-color: #FFE9A2; border-radius: 10px;"
+                ),
                 downloadBttn(
                   outputId = "down_shp_order",
                   label = NULL,
@@ -130,6 +139,15 @@ shinyUI(
                   size = "sm",
                   color = "success"
                 ),
+                shinyDirButton(
+                  "directory",
+                  label = NULL,
+                  title = "Select directory",
+                  multiple = FALSE,
+                  icon = icon("folder"),
+                  viewtype = "detail",
+                  style = "padding: 10px 10px; background-color: #FFE9A2; border-radius: 10px;"
+                ), 
                 actionBttn(
                   inputId = "down_shp_areas",
                   label = NULL,
@@ -160,7 +178,63 @@ shinyUI(
         ),
         tabItem(
           tabName = "access",
-          leafletOutput("map_access")
+          box(
+            title = "Crear Puntos de referencia",
+            status = "warning",
+            width = 12,
+            fluidRow(
+              column(
+                width = 4,
+                boxPad(
+                  pickerInput(
+                    inputId = "select_nom_pto",
+                    label = "Seleccione nombre del punto de referencia",
+                    choices = c("Acceso al predio","Portón de entrada al predio","Otro"),
+                    selected = "Acceso al predio",
+                    options = list(title = "Selecciona una opción")
+                  ),
+                  renderUI("otro_nom_pto"),
+                  # sliderInput(
+                  #   "n_predio", 
+                  #   "Numero del predio:",
+                  #   min = 1, max = nrow(), value = 1
+                  # ),
+                  checkboxGroupInput(
+                    "variable", 
+                    "Variables to show:",
+                    c("Cylinders" = "cyl",
+                      "Transmission" = "am",
+                      "Gears" = "gear")
+                  ),
+                  actionBttn(
+                    inputId = "iniciar",
+                    label = "Iniciar", 
+                    style = "material-flat",
+                    size = "sm",
+                    color = "success"
+                  ),
+                  actionBttn(
+                    inputId = "crear",
+                    label = "Crear", 
+                    style = "material-flat",
+                    size = "sm",
+                    color = "success"
+                  ),
+                  actionBttn(
+                    inputId = "finalizar",
+                    label = "Finalizar", 
+                    style = "material-flat",
+                    size = "sm",
+                    color = "success"
+                  )
+                )
+              ),
+              column(
+                width = 8,
+                editModUI("leaf_pto_ref")
+              )
+            )
+          )
         ),
         tabItem(
           tabName = "carto",
@@ -178,12 +252,6 @@ shinyUI(
                 add_help_text(title = "Campos minimos requeridos:\n'N_Predio', 'Nom_Predio', 'Rol'"),
               leer_sfUI("hidro", "Ingrese shp de hidrografía (Opcional)") %>% 
                 add_help_text(title = "Campos minimos requeridos:\n'Nombre', 'Tipo', 'Permanencia'"),
-              materialSwitch(
-                inputId = "add_osm",
-                label = "¿agregar caminos obtenidos de google?",
-                status = "success"
-              ),
-              uiOutput("osmUI"),
               fileInput(
                 inputId = "dem",
                 label = "DEM",
@@ -193,6 +261,15 @@ shinyUI(
                 placeholder = "Archivo no seleccionado"
               ) %>% 
                 add_help_text("Peso del archivo debe ser menor a XX Mb"),
+              h5("Caminos", style = "font-weight: bold;"),
+              p("Caminos serán creados a partir de la red vial del MOP actualizado al 18-07-2023 ¿Desea agregar caminos que se puedan obtener desde google?"),
+              switchInput(
+                inputId = "add_osm",
+                onLabel = "SI",
+                offLabel = "NO",
+                onStatus = "success"
+              ),
+              uiOutput("osmUI"),
               textInput("NOMPREDIO", "Ingrese un sufijo para el nombre de los archivos"),
               actionBttn(
                 inputId = "get_carto_btn",

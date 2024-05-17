@@ -215,7 +215,7 @@ shinyServer(function(input,output,session){
   )
   
   observeEvent(input$directory, {
-    updateActionButtonStyled(
+    updateActionButton(
       session,
       "down_carto_btn", 
       disabled = c(TRUE, FALSE)[((all(c("root", "path") %in% names(input$directory))) %% 2) + 1])
@@ -265,6 +265,67 @@ shinyServer(function(input,output,session){
       showConfirmButton = T,
       animation = TRUE
     )
+  })
+  
+  # Crear accesos ----
+  map<-leaflet() %>%
+    addTiles() %>%
+    addProviderTiles(providers$OpenStreetMap,
+                     options = tileOptions(minZoom = 2, maxZoom = 15)) %>%
+    addProviderTiles(providers$Esri.WorldImagery,
+                     options = tileOptions(minZoom = 15, maxZoom = 20),
+                     group = "Esri.WorldImagery") %>%
+    addPmToolbar(targetGroup = "name_long",
+                 toolbarOptions = pmToolbarOptions(drawMarker = T,
+                                                   drawPolygon = F,
+                                                   drawPolyline = F,
+                                                   drawCircle = F,
+                                                   drawRectangle = F,
+                                                   editMode = F,
+                                                   cutPolygon = F,
+                                                   removalMode = TRUE,
+                                                   position = "topleft"))
+  
+  observeEvent(input$get_access,{
+    showModal(editModUI("editor"))
+  })
+  edits <- callModule(editMod,
+                      "editor",
+                      targetLayerId = "layerId",
+                      leafmap = map)
+  
+  ns <- shiny::NS("editor")
+  
+  observe({
+    req(predios())
+    proxy.lf <- leafletProxy(ns("map"))
+    
+    # bounds <- predios() %>%
+    #   st_bbox() %>%
+    #   as.character()
+    
+    proxy.lf %>%
+      # fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
+      leaflet::addPolygons(data = predios(),
+                           weight = 3,
+                           opacity = 1,
+                           fill = FALSE,
+                           color = 'red',
+                           fillOpacity = 1,
+                           smoothFactor = 0.01,
+                           group = "name_long")
+  })
+  
+  polygons<-reactive({
+    req(edits()$finished)
+    edits()$finished
+    #edits()$edited
+    # edits()$deleted
+  })
+  
+  output$plot<-renderPlot({
+    req(polygons())
+    plot(polygons())
   })
 })
 

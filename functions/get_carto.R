@@ -165,4 +165,3 @@ cart_pts_ref <- function(predios){
 
 
 
-
