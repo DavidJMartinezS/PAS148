@@ -58,6 +58,7 @@ shinyServer(function(input,output,session){
   
   # Ordenar shapefile ----
   shp_to_order <- leer_sf("sf_order")
+  shp_to_order_name <- leer_sf("sf_order", path = T)
   
   observeEvent(shp_to_order(),{
     updatePickerInput(
@@ -67,13 +68,8 @@ shinyServer(function(input,output,session){
     )
   })
   
-  shp_ordered <- eventReactive(input$apply_order,{
-    req(shp_to_order())
-    shp_to_order() %>% 
-      mutate(ID_ord = st_order(geometry)) 
-  })
-  
   observeEvent(input$apply_order,{
+    add_busy_bar(color = "#FF0000")
     req(shp_ordered())
     shinyalert(
       title = "Listo", 
@@ -84,18 +80,26 @@ shinyServer(function(input,output,session){
     )
   })
   
+  shp_ordered <- eventReactive(input$apply_order,{
+    req(shp_to_order())
+    shp_to_order() %>% 
+      mutate(ID_ord = st_order(geometry)) 
+  })
+  
   output$downloadData <- downloadHandler( ## Solucionar problema para descargar
     filename = function() {
-      "shp_ord.zip"
+      paste0(shp_to_order_name(), ".zip")
     },
     content = function(file) {
       req(shp_ordered())
       temp_dir <- tempdir()
-      write_sf(shp_ordered(), file.path(temp_dir,"shp_ordenado.shp"))
+      namesave <- reactive({paste(shp_to_order_name(),"ordenado.shp",sep = "_")})
+      write_sf(shp_ordered(), file.path(temp_dir,namesave()))
       list_files <- list.files(temp_dir,
                                ".dbf$|.prj$|.shp$|.shx$",
                                full.names = TRUE)
       zip::zipr(zipfile = file, files = Sys.glob(list_files))
+      if (length(Sys.glob(list_files)) > 0) file.remove(Sys.glob(list_files))
     }
   )
   
