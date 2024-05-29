@@ -84,7 +84,7 @@ shinyUI(
                 leer_sfUI("obras", "Ingrese shp de obras") %>% 
                   add_help_text(title = "Campos minimos requeridos:\n'Obra','Tipo'"),
                 leer_sfUI("predios", "Ingrese shp de predios") %>%
-                  add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'Rol', 'Propietario'"),
+                  add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'Rol', 'Prop'"),
                 leer_sfUI("suelos", "Ingrese shp de suelos") %>%
                   add_help_text(title = "Campos minimos requeridos:\n'Textcaus'")
               )     
@@ -119,21 +119,21 @@ shinyUI(
                 hr(style="height:2px;border-width:0;color:gray;background-color:gray"), 
                 h3("Generar rodales y áreas de corta"),
                 pickerInput(
-                  inputId = "grpup_area",
+                  inputId = "group_by_LB",
                   label = "Agrupar por (Opcional):",
                   choices = c(NULL),
                   multiple = T,
                   options = list(title = "Selecciona una o más opciones")
                 ),
                 materialSwitch(
-                  inputId = "group_by_dist",
-                  label = "¿Agrupar por distancia?",
-                  status = "success"
-                ),
-                materialSwitch(
                   inputId = "sep_by_CUS",
                   label = "¿Separar geometrías por CUS?",
                   value = T,
+                  status = "success"
+                ),
+                materialSwitch(
+                  inputId = "group_by_dist",
+                  label = "¿Agrupar por distancia?",
                   status = "success"
                 ),
                 uiOutput("distanceUI"),

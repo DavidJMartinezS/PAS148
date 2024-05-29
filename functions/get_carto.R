@@ -3,13 +3,13 @@ get_rod_area <- function(
     obras, 
     predios, 
     suelos, 
-    sep_by_LB = NULL, 
+    group_by_LB = NULL, 
     sep_by_CUS = F, 
     group_by_distance = F, 
     distance_max = if(group_by_distance == F) NULL
   ){
   
-  if (is.null(sep_by_LB)) {
+  if (is.null(group_by_LB)) {
     group_list <- NULL
     rodales <- LB %>% 
       filter(str_to_sentence(str_trim(Regulacion)) == "Bosque nativo") %>% 
@@ -33,7 +33,7 @@ get_rod_area <- function(
       ) %>% 
       relocate(N_Rodal)
   } else {
-    group_list <- sep_by_LB %>% sym()
+    group_list <- group_by_LB %>% sym()
     rodales <- LB %>% 
       filter(str_to_sentence(str_trim(Regulacion)) == "Bosque nativo") %>% 
       group_by(!!group_list) %>% 
@@ -107,7 +107,13 @@ get_rod_area <- function(
     ungroup() %>% 
     mutate(N_a = str_c(N_Predio2, str_pad(N_r, str_length(max(N_r)), pad = "0"), sep = ".")) %>% 
     select(N_Predio, N_Rodal, N_a, !!group_list, Nom_Predio, textcaus)
-  return(list(Rodales = rodales, Areas = BN_areas))
+  
+  return(
+    list(
+      Rodales = rodales, 
+      Areas = BN_areas
+    )
+  )
 }
 
 

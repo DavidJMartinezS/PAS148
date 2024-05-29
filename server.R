@@ -37,9 +37,11 @@ shinyServer(function(input,output,session){
       shinyalerta()
     }
   })
-  predios <- leer_sf(id = "predios", crs = crs(), ~st_transform(.x,crs()))
+  predios <- leer_sf(id = "predios", crs = crs(), fx = function(x){
+    x %>% st_transform(crs())
+  })
   observeEvent(predios(),{
-    if(!all(c('N_Predio','Nom_Predio','Rol','Propietario') %in% names(predios()))){
+    if(!all(c('N_Predio','Nom_Predio','Rol','Prop') %in% names(predios()))){
       shinyalerta()
     }
   })
@@ -97,13 +99,31 @@ shinyServer(function(input,output,session){
     })
   })
   distance <- reactive({
-    req(input$distance)
-    input$distance
+    req(input$group_by_dist)
+    if (input$group_by_dist) {
+      input$distance
+    } else {
+      NULL
+    }
+  })
+  observeEvent(LB(),{
+    updatePickerInput(
+      session = session,
+      inputId = "group_by_LB",
+      choices = names(LB())
+    )
   })
   areas_prop <- eventReactive(input$get_area,{
     req(LB(),obras(),predios(),suelos())
     get_rod_area(
-      
+      LB = LB(), 
+      obras = obras(), 
+      predios = predios(), 
+      suelos = suelos(), 
+      group_by_LB = input$group_by_LB, 
+      sep_by_CUS = input$sep_by_CUS, 
+      group_by_distance = input$group_by_dist, 
+      distance_max = distance()
     )
   })
   eventReactive(input$get_area,{
@@ -117,7 +137,7 @@ shinyServer(function(input,output,session){
     remove_modal_spinner()
   })
   
-  down(id = "down_sf_ordered", x = areas_prop(), name_save = "Rodales_y_Areas_propuestas", filetype = "sf")
+  down(id = "down_areas", x = areas_prop(), name_save = list("Rodales_propuestos","Areas_propuestas"), filetype = "sf")
   
   # Chequeo de cartografía ----
   shp_check <- leer_sf(id = "sf_check")
