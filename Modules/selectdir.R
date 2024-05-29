@@ -1,32 +1,49 @@
 # Module directory select
+css_downui <- HTML("
+  .downui {
+    display: flex;
+    margin-left: 15px;
+    align-items: center;
+  }
+  .downui button {
+    margin-right: 15px;
+  }
+  .downui pre {
+    margin-top: 10px;
+  }
+")
 
 ## UI
-selectdirUI <- function(id, ...){
+downUI <- function(id, ...){
   ns <- NS(id)
-  splitLayout(
-    shinyDirButton(
-      ns("directory"),
-      label = NULL,
-      title = "Seleccionar directorio",
-      multiple = FALSE,
-      icon = icon("folder"),
-      viewtype = "detail",
-      style = "padding: 7px 10px; background-color: #FFF066; border-radius: 10px;"
+  tags$span(
+    tags$div(
+      class = "downui",
+      shinyDirButton(
+        ns("directory"),
+        label = NULL,
+        title = "Seleccionar directorio",
+        multiple = FALSE,
+        icon = icon("folder"),
+        viewtype = "detail",
+        style = "padding: 7px 10px; background-color: #FFF066; border-radius: 10px;"
+      ),
+      actionBttn(
+        ns("downloadData"),
+        label = NULL,
+        style = "material-circle", 
+        size = "sm",
+        color = "success",
+        icon = icon("download")
+      ),
+      verbatimTextOutput(ns("dir"),placeholder = T)
     ),
-    downloadBttn(
-      outputId = "down_bttn",
-      label = NULL,
-      style = "material-circle",
-      size = "sm",
-      color = "success"
-    ),
-    verbatimTextOutput("dir"), 
-    cellWidths = c("10%","10%", "80%")
+    tags$style(css_downui)
   )
 }
 
 # Server
-selectdir <- function(id, name_zip, save_function){
+down <- function(id, x, name_save, filetype = c("sf","xlsx_sheet","sf_wb")){
   moduleServer(id, function(input, output, session){
     roots <- c(wd = path.expand("~"))
     shinyDirChoose(
@@ -46,6 +63,15 @@ selectdir <- function(id, name_zip, save_function){
       } else {
         selected_path <- nullfile()
       }
+      return(selected_path)
+    })
+    
+    observe({
+      if (dir.exists(directorio())) {
+        enable(id = "downloadData")
+      } else {
+        disable(id = "downloadData")
+      }
     })
     
     output$dir <- renderPrint({
@@ -56,23 +82,46 @@ selectdir <- function(id, name_zip, save_function){
       }
     })
     
-    observeEvent(input$directory,{
+    observeEvent(input$downloadData,{
       req(directorio())
       if (dir.exists(directorio())) {
         temp_dir <- tempdir()
+        zip_file <- file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".zip"))
         
-        eval(save_function)
-        
-        zip_file <- file.path(temp_dir, paste0(name_zip, ".zip"))
-        list_files <- list.files(
-          temp_dir,
-          ".dbf$|.prj$|.shp$|.shx$|.kml&|.xlsx$",
-          full.names = TRUE
+        show_modal_spinner(
+          spin = "flower",
+          color = "#35978F",
+          text = div(br(),p("Descargando en la ruta...",br()," Por favor espere, esto puede tardar unos segundos"))
         )
+        
+        if (filetype == "sf") {
+          write_sf(x, file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".shp")))
+          list_files <- list.files(
+            temp_dir,
+            ".dbf$|.prj$|.shp$|.shx$",
+            full.names = TRUE
+          )
+        } else if (filetype == "xlsx_sheet") {
+          write.xlsx(x, file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".xlsx")))
+          list_files <- list.files(
+            temp_dir,
+            ".xlsx$",
+            full.names = TRUE
+          )
+        } else if (filetype == "xlsx_wb") {
+          saveWorkbook(x, file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".xlsx")),overwrite = TRUE)
+          list_files <- list.files(
+            temp_dir,
+            ".xlsx$",
+            full.names = TRUE
+          )
+        }
+        
         zip::zipr(zipfile = zip_file, files = Sys.glob(list_files))
         file.copy(zip_file, directorio(), overwrite = T)
         if (length(Sys.glob(list_files)) > 0) file.remove(Sys.glob(list_files))
         
+        remove_modal_spinner()
         shinyalert(
           title = "Listo!", 
           text = paste0("Archivo descargado en:\n", directorio()),
@@ -86,3 +135,30 @@ selectdir <- function(id, name_zip, save_function){
     })
   })
 }
+
+# EXAMPLE #
+# ui <- shinyUI(
+#   dashboardPage(
+#     dashboardHeader(),
+#     dashboardSidebar(),
+#     dashboardBody(
+#       box(
+#         width = 12,
+#         title = "ads",
+#         solidHeader = T,
+#         status = "success",
+#         div(
+#           actionBttn("asd",label = "button"),
+#           downUI("id"),
+#           style = "display: flex; align-items: center;"
+#         )
+#       )
+#     )
+#   )
+# )
+# server <- shinyServer(function(input,output,session){
+#   down("id",x = caminos[1:5],name_save = "caminos",filetype = "sf")
+# })
+# shinyApp(ui,server)
+
+

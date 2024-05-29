@@ -11,7 +11,22 @@ shinyUI(
               tags$a(tags$img(height = "40px",
                               src="https://geobiota.com/img/logo-header.svg")
               ),
-              tags$style(css)
+              tags$style(
+                HTML(
+                "/* move logo to center */
+                  #logo {
+                      position: absolute;
+                      left: 50%;
+                      top: 50%;
+                      transform: translate(-50%, -50%);
+                  }
+                /* remove hover effect */
+                 #logo > a:hover {
+                      background-color: transparent !important;
+                      color: transparent !important;
+                  }"
+                )
+              )
       ),
       userOutput("user")
     ),
@@ -88,73 +103,50 @@ shinyUI(
                   label = "Agrupar por (Opcional):",
                   multiple = T,
                   choices = c(NULL), 
-                  options = list(title = "Selecciona una opción")
+                  options = list(title = "Selecciona una o más opciones")
                 ),
-                actionBttn(
-                  inputId = "apply_order",
-                  label = "Ordenar capa",
-                  style = "unite",
-                  size = "sm",
-                  color = "success"
-                ),
-                shinyDirButton(
-                  "directory",
-                  label = NULL,
-                  title = "Select directory",
-                  multiple = FALSE,
-                  icon = icon("folder"),
-                  viewtype = "detail",
-                  style = "padding: 7px 10px; background-color: #FFE9A2; border-radius: 10px;"
-                ),
-                downloadBttn(
-                  outputId = "down_shp_order",
-                  label = NULL,
-                  style = "material-circle",
-                  size = "sm",
-                  color = "warning"
+                div(
+                  actionBttn(
+                    inputId = "apply_order",
+                    label = "Ordenar capa",
+                    style = "unite",
+                    size = "sm",
+                    color = "success"
+                  ),
+                  downUI("down_sf_ordered"),
+                  style = "display: flex; align-items: center;"
                 ),
                 hr(style="height:2px;border-width:0;color:gray;background-color:gray"), 
                 h3("Generar rodales y áreas de corta"),
-                checkboxGroupButtons(
+                pickerInput(
                   inputId = "grpup_area",
-                  label = "Divdir areas por:",
-                  choices = c("Tipo forestal", "Subtipo forestal", "CUS"),
-                  selected = NULL,
-                  checkIcon = list(
-                    yes = tags$i(class = "fa fa-check-square", 
-                                 style = "color: green"),
-                    no = tags$i(class = "fa fa-square-o", 
-                                style = "color: green"))
+                  label = "Agrupar por (Opcional):",
+                  choices = c(NULL),
+                  multiple = T,
+                  options = list(title = "Selecciona una o más opciones")
                 ),
                 materialSwitch(
                   inputId = "group_by_dist",
                   label = "¿Agrupar por distancia?",
                   status = "success"
                 ),
-                uiOutput("distanceUI"),
-                actionBttn(
-                  inputId = "get_area",
-                  label = "Generar areas de corta", 
-                  style = "unite",
-                  size = "sm",
-                  color = "success"
+                materialSwitch(
+                  inputId = "sep_by_CUS",
+                  label = "¿Separar geometrías por CUS?",
+                  value = T,
+                  status = "success"
                 ),
-                shinyDirButton(
-                  "directory",
-                  label = NULL,
-                  title = "Select directory",
-                  multiple = FALSE,
-                  icon = icon("folder"),
-                  viewtype = "detail",
-                  style = "padding: 10px 10px; background-color: #FFE9A2; border-radius: 10px;"
-                ), 
-                actionBttn(
-                  inputId = "down_shp_areas",
-                  label = NULL,
-                  icon = icon("download"),
-                  style = "material-circle",
-                  size = "sm",
-                  color = "warning"
+                uiOutput("distanceUI"),
+                div(
+                  actionBttn(
+                    inputId = "get_area",
+                    label = "Ordenar capa",
+                    style = "unite",
+                    size = "sm",
+                    color = "success"
+                  ),
+                  downUI("down_areas"),
+                  style = "display: flex; align-items: center;"
                 ),
                 hr(style="height:2px;border-width:0;color:gray;background-color:gray"),
                 h3("Chequeo de cartografía"),

@@ -22,7 +22,7 @@ shinyServer(function(input,output,session){
     ifelse(input$huso == "18S",32718,32719)
   })
   LB <- leer_sf(id = "linea_base", crs = crs(), fx = function(x){
-    x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII"))))
+    x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII")))) %>% st_transform(crs())
   })
   observeEvent(LB(),{
     if(!all(c('Tipo_for', 'Subtipo_fo', 'Regulacion') %in% names(LB()))){
@@ -30,21 +30,21 @@ shinyServer(function(input,output,session){
     }
   })
   obras <- leer_sf(id = "obras", crs = crs(), fx = function(x){
-    x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII"))))
+    x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII")))) %>% st_transform(crs())
   })
   observeEvent(obras(),{
     if(!all(c('Obra', 'Tipo') %in% names(obras()))){
       shinyalerta()
     }
   })
-  predios <- leer_sf(id = "predios", crs = crs())
+  predios <- leer_sf(id = "predios", crs = crs(), ~st_transform(.x,crs()))
   observeEvent(predios(),{
     if(!all(c('N_Predio','Nom_Predio','Rol','Propietario') %in% names(predios()))){
       shinyalerta()
     }
   })
   suelos <- leer_sf(id = "suelos", crs = crs(), fx = function(x){
-    x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII"))))
+    x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII")))) %>% st_transform(crs())
   })
   observeEvent(predios(),{
     if(!all(c('Textcaus') %in% names(suelos()))){
@@ -53,6 +53,7 @@ shinyServer(function(input,output,session){
   })
   
   BN <- reactive({
+    req(LB())
     LB() %>% filter(regulacion = "Bosque nativo")
   })
   
@@ -69,15 +70,8 @@ shinyServer(function(input,output,session){
   })
   
   observeEvent(input$apply_order,{
-    add_busy_bar(color = "#FF0000")
     req(shp_ordered())
-    shinyalert(
-      title = "Listo", 
-      text = "Su shapefile ha sido ordenado",
-      type = "success",
-      timer = 1000,
-      animation = TRUE
-    )
+    notify_success("Shapefile ordenado!",timeout = 1500,position = "right-bottom")
   })
   
   shp_ordered <- eventReactive(input$apply_order,{
@@ -86,22 +80,7 @@ shinyServer(function(input,output,session){
       mutate(ID_ord = st_order(geometry)) 
   })
   
-  output$downloadData <- downloadHandler( ## Solucionar problema para descargar
-    filename = function() {
-      paste0(shp_to_order_name(), ".zip")
-    },
-    content = function(file) {
-      req(shp_ordered())
-      temp_dir <- tempdir()
-      namesave <- reactive({paste(shp_to_order_name(),"ordenado.shp",sep = "_")})
-      write_sf(shp_ordered(), file.path(temp_dir,namesave()))
-      list_files <- list.files(temp_dir,
-                               ".dbf$|.prj$|.shp$|.shx$",
-                               full.names = TRUE)
-      zip::zipr(zipfile = file, files = Sys.glob(list_files))
-      if (length(Sys.glob(list_files)) > 0) file.remove(Sys.glob(list_files))
-    }
-  )
+  down(id = "down_sf_ordered", x = shp_to_order(), name_save = shp_to_order_name(), filetype = "sf")
   
   # Generar áreas de corta ----
   observeEvent(input$group_by_dist,{
@@ -118,8 +97,27 @@ shinyServer(function(input,output,session){
     })
   })
   distance <- reactive({
-    req()
+    req(input$distance)
+    input$distance
   })
+  areas_prop <- eventReactive(input$get_area,{
+    req(LB(),obras(),predios(),suelos())
+    get_rod_area(
+      
+    )
+  })
+  eventReactive(input$get_area,{
+    req(LB(),obras(),predios(),suelos())
+    show_modal_spinner(
+      spin = "flower",
+      color = "#35978F",
+      text = div(br(),p("Generando rodales y áreas de corta.",br()," Por favor espere, esto puede tardar unos minutos"))
+    )
+    req(areas_prop())
+    remove_modal_spinner()
+  })
+  
+  down(id = "down_sf_ordered", x = areas_prop(), name_save = "Rodales_y_Areas_propuestas", filetype = "sf")
   
   # Chequeo de cartografía ----
   shp_check <- leer_sf(id = "sf_check")
@@ -174,102 +172,102 @@ shinyServer(function(input,output,session){
     )
     req(carto_digital())
     remove_modal_spinner()
-    output$down_carto_ui <- renderUI({
-      if (input$get_carto_btn){
-        tags$div(
-          tags$hr(),
-          tags$h5("Ya puede descargar su cartografía digital!! Seleccione el directorio y luego descargue su cartografía", 
-                  style = "font-weight: bold;"),
-          splitLayout(
-            shinyDirButton(
-              "directory",
-              label = NULL,
-              title = "Select directory",
-              multiple = FALSE,
-              icon = icon("folder"),
-              viewtype = "detail",
-              style = "padding: 10px 12px;background-color: #008CBA;border-radius: 12px;"
-            ), 
-            downloadBttn(
-              outputId = "down_carto_btn",
-              label = NULL,
-              style = "material-circle",
-              size = "sm",
-              color = "warning",
-              disabled = T
-            ), 
-            verbatimTextOutput("dir_out_output"), 
-            cellWidths = c("10%","10%", "80%")
-          )
-        )
-      }
-    })
+    # output$down_carto_ui <- renderUI({
+    #   if (input$get_carto_btn){
+    #     tags$div(
+    #       tags$hr(),
+    #       tags$h5("Ya puede descargar su cartografía digital!! Seleccione el directorio y luego descargue su cartografía", 
+    #               style = "font-weight: bold;"),
+    #       splitLayout(
+    #         shinyDirButton(
+    #           "directory",
+    #           label = NULL,
+    #           title = "Select directory",
+    #           multiple = FALSE,
+    #           icon = icon("folder"),
+    #           viewtype = "detail",
+    #           style = "padding: 10px 12px;background-color: #008CBA;border-radius: 12px;"
+    #         ), 
+    #         downloadBttn(
+    #           outputId = "down_carto_btn",
+    #           label = NULL,
+    #           style = "material-circle",
+    #           size = "sm",
+    #           color = "warning",
+    #           disabled = T
+    #         ), 
+    #         verbatimTextOutput("dir_out_output"), 
+    #         cellWidths = c("10%","10%", "80%")
+    #       )
+    #     )
+    #   }
+    # })
   })
   
-  roots <- c(wd = path.expand("~"))
-  shinyDirChoose(
-    input,
-    id = "directory",
-    roots = roots,
-    updateFreq = 0,
-    session,
-    defaultPath = "",
-    defaultRoot = NULL,
-    allowDirCreate = TRUE
-  )
-  
-  observeEvent(input$directory, {
-    updateActionButton(
-      session,
-      "down_carto_btn", 
-      disabled = c(TRUE, FALSE)[((all(c("root", "path") %in% names(input$directory))) %% 2) + 1])
-  })
-  
-  directorio <- reactive({
-    if(all(c("root", "path") %in% names(input$directory))){
-      selected_path <- do.call(file.path, c(roots[input$directory$root], input$directory$path))
-    } else {
-      selected_path <- nullfile()
-    }
-    return(selected_path)
-  })
-  
-  output$dir_out_output <- renderPrint({
-    if (dir.exists(directorio())) {
-      directorio()
-    } else {
-      "Directorio no seleccionado"
-    }
-  })
-  
-  observeEvent(input$down_carto_btn,{
-    req(directorio())
-    temp_dir <- tempdir()
-    
-    show_modal_spinner(
-      spin = "flower",
-      color = "#35978F",
-      text = div(br(),p("Descargando cartografía digital.",br()," Por favor espere, esto puede tardar unos segundos"))
-    )
-    down_carto_digital(carto_digital(), temp_dir, input)
-    remove_modal_spinner()
-    
-    zip_file <- file.path(temp_dir, "Compilado_Carto_digital.zip")
-    list_files <- list.files(temp_dir,
-                             ".dbf$|.prj$|.shp$|.shx$|.kml&|.xlsx$",
-                             full.names = TRUE)
-    zip::zipr(zipfile = zip_file, files = Sys.glob(list_files))
-    file.copy(zip_file, directorio(),overwrite = T)
-    if (length(Sys.glob(list_files)) > 0) file.remove(Sys.glob(list_files))
-    shinyalert::shinyalert(
-      title = "Listo!", 
-      text = paste0("Su cartografía digital ha sido descargada en:\n", directorio()),
-      type = "success",
-      closeOnEsc = T, 
-      showConfirmButton = T,
-      animation = TRUE
-    )
-  })
+  # roots <- c(wd = path.expand("~"))
+  # shinyDirChoose(
+  #   input,
+  #   id = "directory",
+  #   roots = roots,
+  #   updateFreq = 0,
+  #   session,
+  #   defaultPath = "",
+  #   defaultRoot = NULL,
+  #   allowDirCreate = TRUE
+  # )
+  # 
+  # observeEvent(input$directory, {
+  #   updateActionButton(
+  #     session,
+  #     "down_carto_btn", 
+  #     disabled = c(TRUE, FALSE)[((all(c("root", "path") %in% names(input$directory))) %% 2) + 1])
+  # })
+  # 
+  # directorio <- reactive({
+  #   if(all(c("root", "path") %in% names(input$directory))){
+  #     selected_path <- do.call(file.path, c(roots[input$directory$root], input$directory$path))
+  #   } else {
+  #     selected_path <- nullfile()
+  #   }
+  #   return(selected_path)
+  # })
+  # 
+  # output$dir_out_output <- renderPrint({
+  #   if (dir.exists(directorio())) {
+  #     directorio()
+  #   } else {
+  #     "Directorio no seleccionado"
+  #   }
+  # })
+  # 
+  # observeEvent(input$down_carto_btn,{
+  #   req(directorio())
+  #   temp_dir <- tempdir()
+  #   
+  #   show_modal_spinner(
+  #     spin = "flower",
+  #     color = "#35978F",
+  #     text = div(br(),p("Descargando cartografía digital.",br()," Por favor espere, esto puede tardar unos segundos"))
+  #   )
+  #   down_carto_digital(carto_digital(), temp_dir, input)
+  #   remove_modal_spinner()
+  #   
+  #   zip_file <- file.path(temp_dir, "Compilado_Carto_digital.zip")
+  #   list_files <- list.files(temp_dir,
+  #                            ".dbf$|.prj$|.shp$|.shx$|.kml&|.xlsx$",
+  #                            full.names = TRUE)
+  #   zip::zipr(zipfile = zip_file, files = Sys.glob(list_files))
+  #   file.copy(zip_file, directorio(),overwrite = T)
+  #   if (length(Sys.glob(list_files)) > 0) file.remove(Sys.glob(list_files))
+  #   shinyalert::shinyalert(
+  #     title = "Listo!", 
+  #     text = paste0("Su cartografía digital ha sido descargada en:\n", directorio()),
+  #     type = "success",
+  #     closeOnEsc = T, 
+  #     showConfirmButton = T,
+  #     animation = TRUE
+  #   )
+  # })
   
   # Crear accesos ----
   map<-leaflet() %>%

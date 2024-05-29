@@ -41,17 +41,3 @@ source("./functions/check_carto.R")
 
 # comunas <- read_sf("n:/Dashboard PAS 150/COMUNAS/COMUNAS_v1.shp")
 caminos <- read_sf("c:/Users/dmartinez/Documents/Data_SIG/Red_Vial_Chile/Red_Vial_Chile_18_07_2023.gdb")
-css <- HTML(
-  "/* move logo to center */
-    #logo {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-    }
-    /* remove hover effect */
-    #logo > a:hover {
-        background-color: transparent !important;
-        color: transparent !important;
-    }"
-)

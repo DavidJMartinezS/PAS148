@@ -74,7 +74,8 @@ get_rod_area <- function(
     mutate(N_Predio2 = cur_group_id()) %>% 
     mutate_at("N_Predio2",as.character) %>% 
     mutate("N_Predio2" = case_when(N_Predio == "S/I" ~ N_Predio, .default = N_Predio2)) %>% 
-    select(-N_Predio) %>% rename(N_Predio = N_Predio2)
+    select(-N_Predio) %>% 
+    rename(N_Predio = N_Predio2)
   
   if (sep_by_CUS) {
     BN_inter <- BN_inter %>% 
