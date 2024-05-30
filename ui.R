@@ -64,10 +64,10 @@ shinyUI(
           tabName = "ayuda",
           fluidRow(
             column(
-              width = 5,
+              width = 6,
               box(
                 width = 12,
-                title = "Inputs",
+                title = "Generar rodales y áreas de corta",
                 solidHeader = T,
                 status = "success",
                 prettyRadioButtons(
@@ -86,11 +86,41 @@ shinyUI(
                 leer_sfUI("predios", "Ingrese shp de predios") %>%
                   add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'Rol', 'Prop'"),
                 leer_sfUI("suelos", "Ingrese shp de suelos") %>%
-                  add_help_text(title = "Campos minimos requeridos:\n'Textcaus'")
+                  add_help_text(title = "Campos minimos requeridos:\n'Textcaus'"),
+                pickerInput(
+                  inputId = "group_by_LB",
+                  label = "Agrupar por (Opcional):",
+                  choices = c(NULL),
+                  multiple = T,
+                  options = list(title = "Selecciona una o más opciones")
+                ),
+                materialSwitch(
+                  inputId = "sep_by_CUS",
+                  label = "¿Separar geometrías por CUS?",
+                  value = T,
+                  status = "success"
+                ),
+                materialSwitch(
+                  inputId = "group_by_dist",
+                  label = "¿Agrupar áreas por distancia?",
+                  status = "success"
+                ),
+                uiOutput("distanceUI"),
+                div(
+                  actionBttn(
+                    inputId = "get_area",
+                    label = "Ordenar capa",
+                    style = "unite",
+                    size = "sm",
+                    color = "success"
+                  ),
+                  downUI("down_areas"),
+                  style = "display: flex; align-items: center;"
+                )
               )     
             ),
             column(
-              width = 7,
+              width = 6,
               box(
                 width = 12,
                 solidHeader = T,
@@ -117,38 +147,6 @@ shinyUI(
                   style = "display: flex; align-items: center;"
                 ),
                 hr(style="height:2px;border-width:0;color:gray;background-color:gray"), 
-                h3("Generar rodales y áreas de corta"),
-                pickerInput(
-                  inputId = "group_by_LB",
-                  label = "Agrupar por (Opcional):",
-                  choices = c(NULL),
-                  multiple = T,
-                  options = list(title = "Selecciona una o más opciones")
-                ),
-                materialSwitch(
-                  inputId = "sep_by_CUS",
-                  label = "¿Separar geometrías por CUS?",
-                  value = T,
-                  status = "success"
-                ),
-                materialSwitch(
-                  inputId = "group_by_dist",
-                  label = "¿Agrupar por distancia?",
-                  status = "success"
-                ),
-                uiOutput("distanceUI"),
-                div(
-                  actionBttn(
-                    inputId = "get_area",
-                    label = "Ordenar capa",
-                    style = "unite",
-                    size = "sm",
-                    color = "success"
-                  ),
-                  downUI("down_areas"),
-                  style = "display: flex; align-items: center;"
-                ),
-                hr(style="height:2px;border-width:0;color:gray;background-color:gray"),
                 h3("Chequeo de cartografía"),
                 leer_sfUI("sf_check","Ingrese Shapefile"),
                 pickerInput(

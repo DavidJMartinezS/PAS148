@@ -5,7 +5,7 @@ get_rod_area <- function(
     suelos, 
     group_by_LB = NULL, 
     sep_by_CUS = F, 
-    group_by_distance = F, 
+    group_by_dist = F, 
     distance_max = if(group_by_distance == F) NULL
   ){
   
@@ -13,49 +13,50 @@ get_rod_area <- function(
     group_list <- NULL
     rodales <- LB %>% 
       filter(str_to_sentence(str_trim(Regulacion)) == "Bosque nativo") %>% 
+      mutate(N_Rodal = st_order(geometry)) %>%
       mutate(
-        N_Rodal = st_order(geometry),
         Tipo_For = case_when(
-          Tipos_Fore %>% str_to_lower() %>% str_detect("alerce") ~ "1",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("araucaria") ~ "2",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("cordillera") ~ "3",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("guaitecas") ~ "4",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("magallanes") ~ "5",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("tepa") ~ "6",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("lenga") ~ "7",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("roble.*rauli") ~ "8",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("roble.*hualo") ~ "9",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("siemprev") ~ "10",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("^escle") ~ "11",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("^palma") ~ "12",
-          .default = Tipos_Fore
+          Tipo_for %>% str_to_lower() %>% str_detect("alerce") ~ "1",
+          Tipo_for %>% str_to_lower() %>% str_detect("araucaria") ~ "2",
+          Tipo_for %>% str_to_lower() %>% str_detect("cordillera") ~ "3",
+          Tipo_for %>% str_to_lower() %>% str_detect("guaitecas") ~ "4",
+          Tipo_for %>% str_to_lower() %>% str_detect("magallanes") ~ "5",
+          Tipo_for %>% str_to_lower() %>% str_detect("tepa") ~ "6",
+          Tipo_for %>% str_to_lower() %>% str_detect("lenga") ~ "7",
+          Tipo_for %>% str_to_lower() %>% str_detect("roble.*rauli") ~ "8",
+          Tipo_for %>% str_to_lower() %>% str_detect("roble.*hualo") ~ "9",
+          Tipo_for %>% str_to_lower() %>% str_detect("siemprev") ~ "10",
+          Tipo_for %>% str_to_lower() %>% str_detect("^escle") ~ "11",
+          Tipo_for %>% str_to_lower() %>% str_detect("^palma") ~ "12",
+          .default = Tipo_for
         )
       ) %>% 
       relocate(N_Rodal)
   } else {
-    group_list <- group_by_LB %>% sym()
+    group_list <- group_by_LB %>% syms()
     rodales <- LB %>% 
       filter(str_to_sentence(str_trim(Regulacion)) == "Bosque nativo") %>% 
-      group_by(!!group_list) %>% 
+      group_by(!!!group_list) %>% 
       summarise(geometry = st_union(geometry)) %>% 
+      ungroup() %>% 
       st_collection_extract("POLYGON") %>%
       st_cast("POLYGON") %>% 
+      mutate(N_Rodal = st_order(geometry)) %>% 
       mutate(
-        N_Rodal = st_order(geometry),
         Tipo_For = case_when(
-          Tipos_Fore %>% str_to_lower() %>% str_detect("alerce") ~ "1",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("araucaria") ~ "2",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("cordillera") ~ "3",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("guaitecas") ~ "4",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("magallanes") ~ "5",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("tepa") ~ "6",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("lenga") ~ "7",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("roble.*rauli") ~ "8",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("roble.*hualo") ~ "9",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("siemprev") ~ "10",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("^escle") ~ "11",
-          Tipos_Fore %>% str_to_lower() %>% str_detect("^palma") ~ "12",
-          .default = Tipos_Fore
+          Tipo_for %>% str_to_lower() %>% str_detect("alerce") ~ "1",
+          Tipo_for %>% str_to_lower() %>% str_detect("araucaria") ~ "2",
+          Tipo_for %>% str_to_lower() %>% str_detect("cordillera") ~ "3",
+          Tipo_for %>% str_to_lower() %>% str_detect("guaitecas") ~ "4",
+          Tipo_for %>% str_to_lower() %>% str_detect("magallanes") ~ "5",
+          Tipo_for %>% str_to_lower() %>% str_detect("tepa") ~ "6",
+          Tipo_for %>% str_to_lower() %>% str_detect("lenga") ~ "7",
+          Tipo_for %>% str_to_lower() %>% str_detect("roble.*rauli") ~ "8",
+          Tipo_for %>% str_to_lower() %>% str_detect("roble.*hualo") ~ "9",
+          Tipo_for %>% str_to_lower() %>% str_detect("siemprev") ~ "10",
+          Tipo_for %>% str_to_lower() %>% str_detect("^escle") ~ "11",
+          Tipo_for %>% str_to_lower() %>% str_detect("^palma") ~ "12",
+          .default = Tipo_for
         )
       ) %>% 
       relocate(N_Rodal)
@@ -79,22 +80,22 @@ get_rod_area <- function(
   
   if (sep_by_CUS) {
     BN_inter <- BN_inter %>% 
-      my_union(suelos %>% select(textcaus)) %>%
+      my_union(suelos %>% select(Textcaus)) %>%
       st_collection_extract("POLYGON") %>%
       st_cast("POLYGON") 
   } else {
     BN_inter <- BN_inter %>% 
       st_join(suelos, join = st_intersects) %>% 
-      group_by(N_Rodal, !!group_list, N_Predio, Nom_Predio, geometry) %>% 
-      summarise(textcaus = str_c(unique(textcaus), collapse = " - ")) %>% 
+      group_by(N_Rodal, !!!group_list, N_Predio, Nom_Predio, geometry) %>% 
+      summarise(Textcaus = str_c(unique(Textcaus), collapse = " - ")) %>% 
       ungroup()
   }
   
-  if (group_by_distance) {
+  if (group_by_dist) {
     BN_inter <- BN_inter %>% 
-      group_by(N_Rodal, N_Predio, textcaus) %>% 
+      group_by(N_Rodal, N_Predio, Textcaus) %>% 
       mutate(group = group_by_distance(geometry, distance = distance_max)) %>% 
-      group_by(N_Rodal, !!group_list, N_Predio, Nom_Predio, textcaus, group) %>% 
+      group_by(N_Rodal, !!!group_list, N_Predio, Nom_Predio, Textcaus, group) %>% 
       summarise(geometry = st_union(geometry))
   } 
   BN_areas <- BN_inter %>% 
@@ -102,11 +103,12 @@ get_rod_area <- function(
       Sup_ha  = st_area(geometry) %>% set_units(ha) %>% round(2),
       Sup_m2  = st_area(geometry) %>% round()
     ) %>% 
-    group_by(N_Predio2) %>% 
+    group_by(N_Predio) %>% 
     mutate(N_r = st_order(geometry)) %>% 
     ungroup() %>% 
-    mutate(N_a = str_c(N_Predio2, str_pad(N_r, str_length(max(N_r)), pad = "0"), sep = ".")) %>% 
-    select(N_Predio, N_Rodal, N_a, !!group_list, Nom_Predio, textcaus)
+    mutate(N_a = str_c(N_Predio, str_pad(N_r, str_length(max(N_r)), pad = "0"), sep = ".")) %>% 
+    select(N_Predio, N_Rodal, N_a, !!!group_list, Nom_Predio, Textcaus) %>% 
+    arrange(N_a)
   
   return(
     list(
@@ -116,7 +118,22 @@ get_rod_area <- function(
   )
 }
 
-
+# Example #
+# LB <- read_sf("c:/Users/dmartinez/Documents/datos_temp/example_files/PAS148/ATL750-Segmentacion_LB.shp")
+# obras <- read_sf("c:/Users/dmartinez/Documents/datos_temp/example_files/PAS148/ATL750-Obras.shp")
+# predios <- read_sf("c:/Users/dmartinez/Documents/datos_temp/example_files/PAS148/ATL750-Predios.shp")
+# suelos <- read_sf("c:/Users/dmartinez/Documents/datos_temp/example_files/PAS148/ATL750-CIREN_Suelos.shp")
+# 
+# rod_areas <- get_rod_area(
+#     LB, 
+#     obras, 
+#     predios, 
+#     suelos, 
+#     group_by_LB = c("Tipo_for","Subtipo_fo"), 
+#     sep_by_CUS = T, 
+#     group_by_dist = T, 
+#     distance_max = 50
+# )
 
 cart_area <- function(areas){
   areas %>% 
@@ -126,7 +143,7 @@ cart_area <- function(areas){
 
 cart_suelos <- function(areas){
   areas %>% 
-    rename(Clase_uso = textcaus) %>% # Revisar nombre del campo
+    rename(Clase_uso = Textcaus) %>% # Revisar nombre del campo
     select(Nom_Predio, Clase_uso, Sup_ha)
 }
 

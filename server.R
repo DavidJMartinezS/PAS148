@@ -82,6 +82,17 @@ shinyServer(function(input,output,session){
       mutate(ID_ord = st_order(geometry)) 
   })
   
+  observeEvent(input$apply_order,{
+    req(shp_to_order())
+    show_modal_spinner(
+      spin = "flower",
+      color = "#35978F",
+      text = div(br(),p("Generando campo 'ID_ord' con la numeración.",br()," Por favor espere, esto puede tardar un poco"))
+    )
+    req(shp_ordered())
+    remove_modal_spinner()
+  })
+  
   down(id = "down_sf_ordered", x = shp_to_order(), name_save = shp_to_order_name(), filetype = "sf")
   
   # Generar áreas de corta ----
@@ -98,6 +109,7 @@ shinyServer(function(input,output,session){
       }
     })
   })
+  
   distance <- reactive({
     req(input$group_by_dist)
     if (input$group_by_dist) {
@@ -106,6 +118,7 @@ shinyServer(function(input,output,session){
       NULL
     }
   })
+  
   observeEvent(LB(),{
     updatePickerInput(
       session = session,
@@ -113,6 +126,7 @@ shinyServer(function(input,output,session){
       choices = names(LB())
     )
   })
+  
   areas_prop <- eventReactive(input$get_area,{
     req(LB(),obras(),predios(),suelos())
     get_rod_area(
@@ -122,11 +136,12 @@ shinyServer(function(input,output,session){
       suelos = suelos(), 
       group_by_LB = input$group_by_LB, 
       sep_by_CUS = input$sep_by_CUS, 
-      group_by_distance = input$group_by_dist, 
+      group_by_dist = input$group_by_dist, 
       distance_max = distance()
     )
   })
-  eventReactive(input$get_area,{
+  
+  observeEvent(input$get_area,{
     req(LB(),obras(),predios(),suelos())
     show_modal_spinner(
       spin = "flower",

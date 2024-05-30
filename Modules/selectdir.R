@@ -123,6 +123,7 @@ down <- function(id, x, name_save, filetype = c("sf","xlsx_sheet","sf_wb")){
         file.remove(unlist(list_files_rm))
         
         remove_modal_spinner()
+        
         shinyalert(
           title = "Listo!", 
           text = paste0("Archivo descargado en:\n", directorio()),
