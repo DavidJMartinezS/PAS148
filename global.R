@@ -30,6 +30,7 @@ library(tools)
 # library(dipsaus)
 library(zip)
 
+# Daniel weco
 options(shiny.maxRequestSize=150*1024^2)
 
 source("./Modules/leer_sf.R")
@@ -40,5 +41,6 @@ source("./functions/functions.R")
 source("./functions/check_carto.R")
 source("./functions/get_carto.R")
 
-# comunas <- read_sf("n:/Dashboard PAS 150/COMUNAS/COMUNAS_v1.shp")
-caminos <- read_sf("c:/Users/dmartinez/Documents/Data_SIG/Red_Vial_Chile/Red_Vial_Chile_18_07_2023.gdb")
+comunas <- read_sf("n:/Dashboard PAS 150/COMUNAS/COMUNAS_v1.shp")
+red_hidro <- read_sf("n:/Dashboard PAS 150/Hidrografia_V2/Hidrografia_V2 (1).shp")
+red_vial <- read_sf("n:/Dashboard PAS 150/Red_Vial_Chile_18_07_2023.gdb")

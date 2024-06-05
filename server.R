@@ -59,42 +59,6 @@ shinyServer(function(input,output,session){
     LB() %>% filter(regulacion = "Bosque nativo")
   })
   
-  # Ordenar shapefile ----
-  shp_to_order <- leer_sf("sf_order")
-  shp_to_order_name <- leer_sf("sf_order", path = T)
-  
-  observeEvent(shp_to_order(),{
-    updatePickerInput(
-      session = session,
-      inputId = "select_field_order",
-      choices = names(shp_to_order())
-    )
-  })
-  
-  observeEvent(input$apply_order,{
-    req(shp_ordered())
-    notify_success("Shapefile ordenado!",timeout = 1500,position = "right-bottom")
-  })
-  
-  shp_ordered <- eventReactive(input$apply_order,{
-    req(shp_to_order())
-    shp_to_order() %>% 
-      mutate(ID_ord = st_order(geometry)) 
-  })
-  
-  observeEvent(input$apply_order,{
-    req(shp_to_order())
-    show_modal_spinner(
-      spin = "flower",
-      color = "#35978F",
-      text = div(br(),p("Generando campo 'ID_ord' con la numeración.",br()," Por favor espere, esto puede tardar un poco"))
-    )
-    req(shp_ordered())
-    remove_modal_spinner()
-  })
-  
-  down(id = "down_sf_ordered", x = shp_to_order(), name_save = shp_to_order_name(), filetype = "sf")
-  
   # Generar áreas de corta ----
   observeEvent(input$group_by_dist,{
     output$distanceUI <- renderUI({
@@ -152,7 +116,43 @@ shinyServer(function(input,output,session){
     remove_modal_spinner()
   })
   
-  down(id = "down_areas", x = areas_prop(), name_save = list("Rodales_propuestos","Areas_propuestas"), filetype = "sf")
+  down(id = "down_areas", x = areas_prop(), name_save = list("Rodales_propuestos","Areas_propuestas","Predios_propuestos"), filetype = "sf")
+  
+  # Ordenar shapefile ----
+  shp_to_order <- leer_sf("sf_order")
+  shp_to_order_name <- leer_sf("sf_order", path = T)
+  
+  observeEvent(shp_to_order(),{
+    updatePickerInput(
+      session = session,
+      inputId = "select_field_order",
+      choices = names(shp_to_order())
+    )
+  })
+  
+  observeEvent(input$apply_order,{
+    req(shp_ordered())
+    notify_success("Shapefile ordenado!",timeout = 1500,position = "right-bottom")
+  })
+  
+  shp_ordered <- eventReactive(input$apply_order,{
+    req(shp_to_order())
+    shp_to_order() %>% 
+      mutate(ID_ord = st_order(geometry)) 
+  })
+  
+  observeEvent(input$apply_order,{
+    req(shp_to_order())
+    show_modal_spinner(
+      spin = "flower",
+      color = "#35978F",
+      text = div(br(),p("Generando campo 'ID_ord' con la numeración.",br()," Por favor espere, esto puede tardar un poco"))
+    )
+    req(shp_ordered())
+    remove_modal_spinner()
+  })
+  
+  down(id = "down_sf_ordered", x = shp_to_order(), name_save = shp_to_order_name(), filetype = "sf")
   
   # Chequeo de cartografía ----
   shp_check <- leer_sf(id = "sf_check")

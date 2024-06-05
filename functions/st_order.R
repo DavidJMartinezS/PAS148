@@ -1,6 +1,8 @@
 library(dplyr)
 library(sf)
 
+# Priorizar poligonos al nortes para evitar poligonos que queden rezagados. Se podria realizar alguna lista de poligonos que estan a cierto radio del poligono a evaluar, que se vayan agregando y quitando o actualizando a medida que avanza el ciclo while. Se podria realizar una condicion de que si la distancia del poligono rezagado es mayor y esta más al norte entonces que continue en el ciclo 
+
 st_order <- function(x){
   if("sf" %in% class(x)){
     x <- x %>% st_centroid()
