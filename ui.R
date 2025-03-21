@@ -70,21 +70,12 @@ shinyUI(
                 title = "Generar rodales y áreas de corta",
                 solidHeader = T,
                 status = "success",
-                prettyRadioButtons(
-                  inputId = "huso",
-                  label = "Huso:", 
-                  choices = c("18S", "19S"),
-                  selected = "18S",
-                  inline = TRUE, 
-                  status = "success",
-                  fill = TRUE
-                ),
                 leer_sfUI("linea_base", "Ingrese cartografía de linea base") %>% 
                   add_help_text(title = "Campos minimos requeridos:\n'Tipo_for', 'Subtipo_fo', 'Regulacion'"),
                 leer_sfUI("obras", "Ingrese shp de obras") %>% 
                   add_help_text(title = "Campos minimos requeridos:\n'Obra','Tipo'"),
                 leer_sfUI("predios", "Ingrese shp de predios") %>%
-                  add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'Rol', 'Prop'"),
+                  add_help_text(title = "Campos minimos requeridos:\n'N_Predio','Nom_Predio', 'Rol', 'Prop'"),
                 leer_sfUI("suelos", "Ingrese shp de suelos") %>%
                   add_help_text(title = "Campos minimos requeridos:\n'Textcaus'"),
                 pickerInput(
@@ -106,15 +97,29 @@ shinyUI(
                   status = "success"
                 ),
                 uiOutput("distanceUI"),
+                materialSwitch(
+                  inputId = "cut_by_prov",
+                  label = "¿Cortar áreas por una provincia?",
+                  status = "success"
+                ),
+                uiOutput("select_prov_UI"),
+                div(
+                  materialSwitch(
+                    inputId = "ord_rodales",
+                    label = "¿Ordenar rodales espacialmente?",
+                    status = "success"
+                  ),
+                  uiOutput("ord_rodales_UI")
+                ),
                 div(
                   actionBttn(
                     inputId = "get_area",
-                    label = "Ordenar capa",
+                    label = "Generar capas",
                     style = "unite",
                     size = "sm",
                     color = "success"
                   ),
-                  downUI("down_areas"),
+                  downfile_ui("down_areas"),
                   style = "display: flex; align-items: center;"
                 )
               )     
@@ -126,8 +131,14 @@ shinyUI(
                 solidHeader = T,
                 status = "success",
                 title = "Ayudas cartográficas",
-                h3("Ordenar shapefile N->S & O->E"),
+                h3("Ordenar shapefile"),
                 leer_sfUI("sf_order","Ingrese Shapefile que desea ordenar"),
+                pickerInput(
+                  inputId = "orden",
+                  label = "Ordenar de:",
+                  selected = "NS-OE",
+                  choices = c("NS-OE","NS-EO","SN-EO","SN-OE","EO-NS","EO-SN","OE-NS","OE-SN")
+                ),
                 pickerInput(
                   inputId = "select_field_order",
                   label = "Agrupar por (Opcional):",
@@ -143,7 +154,7 @@ shinyUI(
                     size = "sm",
                     color = "success"
                   ),
-                  downUI("down_sf_ordered"),
+                  downfile_ui("down_sf_ordered"),
                   style = "display: flex; align-items: center;"
                 ),
                 hr(style="height:2px;border-width:0;color:gray;background-color:gray"), 
@@ -152,9 +163,20 @@ shinyUI(
                 pickerInput(
                   inputId = "select_sf_check",
                   label = "Seleccione la capa a la que corresponde el shapefile",
-                  choices = c("Área","Caminos","Curvas de nivel","Hidrografía","Límite predial","Parcelas","Puntos de referencia","Rangos de pendiente","Rodales","Suelos"),
+                  choices = c(
+                    "Área",
+                    "Caminos",
+                    "Curvas de nivel",
+                    "Hidrografía",
+                    "Límite predial",
+                    "Parcelas",
+                    "Puntos de referencia",
+                    "Rangos de pendiente",
+                    "Rodales",
+                    "Suelos"
+                  ),
                   options = list(title = "Selecciona una opción")
-                ),
+                ), 
                 actionBttn(
                   inputId = "check_carto",
                   label = "Chequear", 
@@ -162,66 +184,6 @@ shinyUI(
                   size = "sm",
                   color = "success"
                 )
-              )
-            )
-          )
-        ),
-        tabItem(
-          tabName = "access",
-          box(
-            title = "Crear Puntos de referencia",
-            status = "warning",
-            width = 12,
-            fluidRow(
-              column(
-                width = 4,
-                boxPad(
-                  pickerInput(
-                    inputId = "select_nom_pto",
-                    label = "Seleccione nombre del punto de referencia",
-                    choices = c("Acceso al predio","Portón de entrada al predio","Otro"),
-                    selected = "Acceso al predio",
-                    options = list(title = "Selecciona una opción")
-                  ),
-                  renderUI("otro_nom_pto"),
-                  # sliderInput(
-                  #   "n_predio", 
-                  #   "Numero del predio:",
-                  #   min = 1, max = nrow(), value = 1
-                  # ),
-                  checkboxGroupInput(
-                    "variable", 
-                    "Variables to show:",
-                    c("Cylinders" = "cyl",
-                      "Transmission" = "am",
-                      "Gears" = "gear")
-                  ),
-                  actionBttn(
-                    inputId = "iniciar",
-                    label = "Iniciar", 
-                    style = "material-flat",
-                    size = "sm",
-                    color = "success"
-                  ),
-                  actionBttn(
-                    inputId = "crear",
-                    label = "Crear", 
-                    style = "material-flat",
-                    size = "sm",
-                    color = "success"
-                  ),
-                  actionBttn(
-                    inputId = "finalizar",
-                    label = "Finalizar", 
-                    style = "material-flat",
-                    size = "sm",
-                    color = "success"
-                  )
-                )
-              ),
-              column(
-                width = 8,
-                editModUI("leaf_pto_ref")
               )
             )
           )
@@ -235,22 +197,28 @@ shinyUI(
               solidHeader = T,
               status = "success",
               leer_sfUI("cart_area", "Ingrese shapefile de areas de corta") %>% 
-                add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_a', 'Sup_ha'"),
+                add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_a'"),
               leer_sfUI("cart_rodales", "Ingrese shapefile de rodales") %>%
-                add_help_text(title = "Campos minimos requeridos:\n'N_Rodal', 'Tipo_For', 'Sup_ha'"),
+                add_help_text(title = "Campos minimos requeridos:\n'N_Rodal', 'Tipo_For'"),
+              prettyToggle(
+                inputId = "tipo_for",
+                label_on = "Tipo_For (numerico): ej., 11", 
+                label_off = "Tipo_For (caracter): ej., 'Esclerófilo'"
+              ),
+              br(),
               leer_sfUI("cart_predios", "Ingrese shapefile de limites prediales") %>% 
                 add_help_text(title = "Campos minimos requeridos:\n'N_Predio', 'Nom_Predio', 'Rol'"),
-              leer_sfUI("hidro", "Ingrese shp de hidrografía (Opcional)") %>% 
-                add_help_text(title = "Campos minimos requeridos:\n'Nombre', 'Tipo', 'Permanencia'"),
+              # leer_sfUI("hidro", "Ingrese shp de hidrografía (Opcional)") %>% 
+              #   add_help_text(title = "Campos minimos requeridos:\n'Nombre', 'Tipo', 'Perma'"),
               fileInput(
                 inputId = "dem",
                 label = "DEM",
                 multiple = F,
-                accept = c(".tif",".png"),
+                accept = c(".tif",".jp2"),
                 buttonLabel = "Seleccionar",
                 placeholder = "Archivo no seleccionado"
               ) %>% 
-                add_help_text("Peso del archivo debe ser menor a XX Mb"),
+                add_help_text("Por favor utilizar DEM acotado al área de estudio"),
               h5("Caminos", style = "font-weight: bold;"),
               p("Caminos serán creados a partir de la red vial del MOP actualizado al 18-07-2023 ¿Desea agregar caminos que se puedan obtener desde google?"),
               switchInput(
@@ -260,13 +228,18 @@ shinyUI(
                 onStatus = "success"
               ),
               uiOutput("osmUI"),
-              textInput("NOMPREDIO", "Ingrese un sufijo para el nombre de los archivos"),
-              actionBttn(
-                inputId = "get_carto_btn",
-                label = "Obtener cartografía", 
-                style = "unite",
-                size = "sm",
-                color = "success"
+              textInput("NOMPREDIO", "Ingrese un sufijo para el nombre de los archivos", placeholder = "Ej: CHILICAUQUENALTO, KIMAL, etc"),
+              div(
+                actionBttn(
+                  inputId = "get_carto_btn",
+                  label = "Obtener cartografía", 
+                  style = "unite",
+                  size = "sm",
+                  color = "success"
+                ),
+                renderUI("down_carto_ui"),
+                # downfile_ui("down_carto"),
+                style = "display: flex; align-items: center;"
               )
             ),
             box(
@@ -276,6 +249,10 @@ shinyUI(
               status = "success"
             )
           )
+        ),
+        tabItem(
+          tabName = "access"
+          
         )
       )# fin tabitems
     ) # fin dashboardbody

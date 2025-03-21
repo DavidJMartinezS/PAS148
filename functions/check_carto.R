@@ -1,15 +1,17 @@
 check_carto <- function(x, id){
   list_check <- list(
-    "Áreas" = c("Nom_Predio","N_a","Tipo_Bos","Sup_ha"),
-    "Caminos" = c("Nom_Predio","Tipo_Cam"),
+    "Áreas" = c("Nom_Predio", "N_a", "Tipo_Bos", "Sup_ha"),
+    "Caminos" = c("Nom_Predio", "Tipo_Cam"),
     "Curvas de nivel" = c("Nom_Predio","Cot_curva"),
-    "Hidrografía" = c("Nom_Predio","Tipo_Dren","Tipo_Perma"),
-    "Límite predial" = c("Nom_Predio","Rol","Sup_ha"),
-    "Parcelas" = c("N_Rodal","N_Parc","Coord_X","Coord_Y"),
-    "Puntos de referencia" = c("Nom_Predio","Nom_pto","Coord_X","Coord_Y"),
-    "Rangos de pendiente" = c("Nom_Predio","Ran_Pend","Sup_ha"),
-    "Rodales" = c("Nom_Predio","N_a","Tipo_Bos","Sup_ha"),
-    "Suelos" = c("Nom_Predio","N_Rodal","Tipo_Bos","Tipo_For","Sup_ha")
+    "Hidrografía" = c("Nom_Predio", "Tipo_Dren", "Tipo_Perma"),
+    "Límite predial" = c("Nom_Predio", "Rol", "Sup_ha"), 
+    "Parcelas" = c("N_Rodal", "N_Parc", "Coord_X", "Coord_Y"),
+    "Puntos de referencia" = c("Nom_Predio", "Nom_pto", "Coord_X", "Coord_Y"),
+    "Rangos de pendiente" = c("Nom_Predio", "Ran_Pend", "Sup_ha"),
+    "Rodales" = c("Nom_Predio", "N_a", "Tipo_Bos", "Sup_ha"),
+    "Señaletica de incendios" = c("Nom_Predio", "Nom_pto", "Coord_X", "Coord_Y"),
+    "Suelos" = c("Nom_Predio", "N_Rodal", "Tipo_Bos", "Tipo_For", "Sup_ha"),
+    "Uso actual" = c("Nom_Predio", "Uso_actual", "Sup_ha")
   )
   names_req <- list_check[[id]]
   names_act <- x %>% st_drop_geometry() %>% names()
@@ -39,8 +41,8 @@ check_carto <- function(x, id){
       shinyalert(
         title = "Problemas!", 
         text = str_c("Shapefile con los campos requeridos pero desordenados",
-                     "\nActual: ",str_c(names_act %>% shQuote(), collapse = ", "),
-                     "\nCorrecto: ",str_c(names_req %>% shQuote(), collapse = ", ")
+                     "\nActual: ", str_c(names_act %>% shQuote(), collapse = ", "),
+                     "\nCorrecto: ", str_c(names_req %>% shQuote(), collapse = ", ")
         ),
         type = "warning",
         closeOnEsc = T, 

@@ -83,8 +83,11 @@ down <- function(id, x, name_save, filetype = c("sf","xlsx_sheet","sf_wb")){
     })
     
     observeEvent(input$downloadData,{
+      
       req(directorio())
+      
       if (dir.exists(directorio())) {
+        
         temp_dir <- tempdir()
         zip_file <- file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".zip"))
         
@@ -95,27 +98,32 @@ down <- function(id, x, name_save, filetype = c("sf","xlsx_sheet","sf_wb")){
         )
         
         if (filetype == "sf") {
+          
           map2(x, file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".shp")), .f = ~write_sf(.x, .y))
-          # write_sf(x, file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".shp")))
           list_files <- map(name_save, function(x){
             list.files(temp_dir, pattern = paste0(x,"(.dbf$|.prj$|.shp$|.shx$)"),full.names = T)
           })
+          
         } else {
+          
           if (filetype == "xlsx_sheet") {
+            
             map2(x, file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".shp")), .f = ~write.xlsx(.x, .y))
-            # write.xlsx(x, file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".xlsx")))
+            
           } else if (filetype == "xlsx_wb") {
+            
             map2(x, file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".shp")), .f = ~saveWorkbook(.x, .y,overwrite = TRUE))
-            # saveWorkbook(x, file.path(temp_dir, paste0(file_path_sans_ext(name_save), ".xlsx")),overwrite = TRUE)
             
           }
+          
           list_files <- map(name_save, function(x){
+            
             list.files(temp_dir, pattern = paste0(x,"(.xlsx$)"),full.names = T)
+            
           })
         }
         
         map2(zip_file, lapply(list_files,Sys.glob), .f = ~zip::zipr(.x,.y))
-        # zip::zipr(zipfile = zip_file, files = Sys.glob(list_files))
         file.copy(zip_file, directorio(), overwrite = T)
         list_files_rm <- map(name_save, function(x){
           list.files(temp_dir, pattern = paste0(x),full.names = T,recursive = T)

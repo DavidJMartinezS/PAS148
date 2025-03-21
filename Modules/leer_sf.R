@@ -20,7 +20,7 @@ leer_sf <- function(id, crs = NULL, fx = NULL, path = F){
     reactive({
       req(input$sf_file)
       if (path) {
-        return(input$sf_file$name[1] %>% tools::file_path_sans_ext)
+        return(input$sf_file$name[1] %>% tools::file_path_sans_ext())
       } else {
         shpdf <- input$sf_file
         tempdirname <- dirname(shpdf$datapath[1])
@@ -32,13 +32,9 @@ leer_sf <- function(id, crs = NULL, fx = NULL, path = F){
         }
         shp <- read_sf(paste(tempdirname, shpdf$name[grep(pattern="*.shp$", shpdf$name)], sep="/")) %>%
           st_zm() %>%
-          st_make_valid()
-        if (!is.null(fx)){
-          shp <- shp %>% fx()
-        }
-        if (!is.null(crs)){
-          shp <- shp %>% st_transform(crs)
-        }
+          st_make_valid() %>% 
+          {if (!is.null(fx)) .[] %>% fx() else .} %>% 
+          {if (!is.null(crs)) .[] %>% st_transform(crs) else .}
         return(shp)
       }
     })
