@@ -153,7 +153,7 @@ shinyUI(
                     style = "unite",
                     size = "sm",
                     color = "success"
-                  ),
+                  ) %>%  bs_embed_tooltip(title = "Crea campo 'ID_ord' con el orden"),
                   downfile_ui("down_sf_ordered"),
                   style = "display: flex; align-items: center;"
                 ),
@@ -193,41 +193,93 @@ shinyUI(
           fluidRow(
             box(
               width = 6,
-              title = "Inputs finales",
+              title = "Generar cartografía",
               solidHeader = T,
               status = "success",
-              leer_sfUI("cart_area", "Ingrese shapefile de areas de corta") %>% 
-                add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_a'"),
+              # HUSO 
+              prettyRadioButtons(
+                inputId = "huso",
+                label = "Huso:", 
+                choices = c("18S", "19S"),
+                selected = "19S",
+                inline = TRUE, 
+                status = "success",
+                fill = TRUE
+              ),
+              
+              # AREAS DE CORTA
+              leer_sfUI("cart_area", "Ingrese shapefile de áreas de corta") %>% 
+                add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_Area'"),
+              div(style = "margin-top: -10px"),
+              RCA_UI("rca_areas"),
+              div(style = "margin-top: -30px"),
+              hr(),
+              
+              # RODALES
               leer_sfUI("cart_rodales", "Ingrese shapefile de rodales") %>%
                 add_help_text(title = "Campos minimos requeridos:\n'N_Rodal', 'Tipo_For'"),
+              div(style = "margin-top: -10px"),
               prettyToggle(
                 inputId = "tipo_for",
-                label_on = "Tipo_For (numerico): ej., 11", 
+                label_on = "Tipo_For (numerico): ej., 11",
                 label_off = "Tipo_For (caracter): ej., 'Esclerófilo'"
               ),
-              br(),
+              RCA_UI("rca_rodales"),
+              div(style = "margin-top: -30px"),
+              hr(),
+              
+              # PREDIOS
               leer_sfUI("cart_predios", "Ingrese shapefile de limites prediales") %>% 
                 add_help_text(title = "Campos minimos requeridos:\n'N_Predio', 'Nom_Predio', 'Rol'"),
-              # leer_sfUI("hidro", "Ingrese shp de hidrografía (Opcional)") %>% 
-              #   add_help_text(title = "Campos minimos requeridos:\n'Nombre', 'Tipo', 'Perma'"),
+              div(style = "margin-top: -10px"),
+              hr(),
+              
+              # CAMINOS 
+              h5("Caminos", style = "font-weight: bold;"),
+                p("Caminos serán creados a partir de la red vial del MOP actualizado al 07-02-2024 (descargar ",
+                  a("aqui", .noWS = "outside", href = "https://mapas.mop.gov.cl/red-vial/Red_Vial_Chile.zip"),
+                  ") ¿Desea crear otra capa de caminos a partir de información de Google?"),
+              switchInput(
+                inputId = "add_cam_osm",
+                size = "mini",
+                onLabel = "Si",
+                offLabel = "No",
+                onStatus = "success"
+              ),
+              uiOutput("add_cam_osm_ui"),
+              div(style = "margin-top: -10px"),
+              hr(),
+              
+              # HIDROGRAFÍA
+              h5("Hidrografía", style = "font-weight: bold;"),
+              p("Hidrografía será creada a partir de la hidrografía de IDE chile actualizada al 31-12-2022 (link ", 
+                a("aquí", .noWS = "outside", href = "https://www.geoportal.cl/geoportal/catalog/36436/Hidrograf%C3%ADa%20de%20la%20regi%C3%B3n%20de%20Arica%20a%20la%20regi%C3%B3n%20de%20Los%20Lagos"),
+                ") ¿Desea crear capa hidrografíca a partir de información de Google? (De lo contrario )"),
+              switchInput(
+                inputId = "add_hidro_osm",
+                size = "mini",
+                onLabel = "Si",
+                offLabel = "No",
+                onStatus = "success"
+              ),
+              uiOutput("add_hidro_osm_ui"),
+              div(style = "margin-top: -10px"),
+              hr(),
+              
+              # DEM
               fileInput(
                 inputId = "dem",
-                label = "DEM",
+                  label = "Ingresar DEM de Alos Palsar",
                 multiple = F,
                 accept = c(".tif",".jp2"),
                 buttonLabel = "Seleccionar",
                 placeholder = "Archivo no seleccionado"
               ) %>% 
                 add_help_text("Por favor utilizar DEM acotado al área de estudio"),
-              h5("Caminos", style = "font-weight: bold;"),
-              p("Caminos serán creados a partir de la red vial del MOP actualizado al 18-07-2023 ¿Desea agregar caminos que se puedan obtener desde google?"),
-              switchInput(
-                inputId = "add_osm",
-                onLabel = "SI",
-                offLabel = "NO",
-                onStatus = "success"
-              ),
-              uiOutput("osmUI"),
+              div(style = "margin-top: -10px"),
+              hr(),
+              
+              # NOMBRE PREDIO
               textInput("NOMPREDIO", "Ingrese un sufijo para el nombre de los archivos", placeholder = "Ej: CHILICAUQUENALTO, KIMAL, etc"),
               div(
                 actionBttn(
@@ -238,13 +290,12 @@ shinyUI(
                   color = "success"
                 ),
                 renderUI("down_carto_ui"),
-                # downfile_ui("down_carto"),
                 style = "display: flex; align-items: center;"
               )
             ),
             box(
               width = 6,
-              title = "Outputs",
+              title = "Generar Anexos",
               solidHeader = T,
               status = "success"
             )

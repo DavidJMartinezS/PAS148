@@ -108,13 +108,14 @@ get_rod_area <- function(
     ) %>% 
     group_by(N_Predio) %>% 
     mutate(N_r = st_order(geometry)) %>% 
+    arrange(as.numeric(N_Predio), N_r) %>% 
+    rowid_to_column("N_Area") %>% 
     ungroup() %>% 
     mutate(
       Tipo_Bos = "BN",
       N_a = str_c(N_Predio, str_pad(N_r, str_length(max(N_r)), pad = "0"), sep = ".")
     ) %>% 
-    select(!!!group_list, Tipo_For, Tipo_Bos, N_Rodal, N_a, N_Pred_ori, Clase_uso, Sup_ha, Sup_m2) %>% 
-    arrange(N_a)
+    select(!!!group_list, Tipo_For, Tipo_Bos, N_Rodal, N_a, N_Area, N_Pred_ori, Clase_uso, Sup_ha, Sup_m2) %>% 
   
   Predios <- predios %>%
     filter(N_Predio %in% unique(BN_areas$N_Pred_ori)) %>% 
@@ -134,7 +135,157 @@ get_rod_area <- function(
   )
 }
 
+cart_rodales <- function(rodales, TipoFor_num = NULL, dec_sup = 2){
+  if(is.null(TipoFor_num)){
+    if(rodales$Tipo_For %>% as.character() %>% str_detect("\\d") %>% table() %>% proportions() %>% subset(names(.) == TRUE) %>% unname() %>% .[] > 0.5){
+      TipoFor_num <- T
+    }
+  }
+  rodales %>%
+    {if(!TipoFor_num){
+      .[] %>% 
+        mutate_if(
+          names(.) == "Tipo_For",
+          list(Tipo_For = ~case_when(
+            .x %>% stri_detect_regex("alerce", case_insensitive = T) ~ "1",
+            .x %>% stri_detect_regex("araucaria", case_insensitive = T) ~ "2",
+            .x %>% stri_detect_regex("cordillera", case_insensitive = T) ~ "3",
+            .x %>% stri_detect_regex("guaitecas", case_insensitive = T) ~ "4",
+            .x %>% stri_detect_regex("magallanes", case_insensitive = T) ~ "5",
+            .x %>% stri_detect_regex("tepa", case_insensitive = T) ~ "6",
+            .x %>% stri_detect_regex("lenga", case_insensitive = T) ~ "7",
+            .x %>% stri_detect_regex("roble.*raul", case_insensitive = T) ~ "8",
+            .x %>% stri_detect_regex("roble.*hualo", case_insensitive = T) ~ "9",
+            .x %>% stri_detect_regex("siemprev", case_insensitive = T) ~ "10",
+            .x %>% stri_detect_regex("escle", case_insensitive = T) ~ "11",
+            .x %>% stri_detect_regex("palma", case_insensitive = T) ~ "12",
+            .default = .x)
+          )
+        )
+    } else .
+    } %>% 
+    mutate_at("Tipo_For", as.integer) %>%
+    mutate(
+      Tipo_Bos = "BN",
+      Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup),
+      Fuente = "Elaboración propia"
+    ) %>%
+    select(Nom_Predio, N_Rodal, Tipo_Bos, Tipo_For, Sup_ha, Fuente)
+}
 
+cart_area <- function(areas, dec_sup = 2, from_RCA = F, RCA = NULL){
+  stopifnot(c("Nom_Predio", "N_Area", "Tipo_Bos") %in% names(areas) %>% all())
+  fuente <- if_else(from_RCA)
+  areas %>%
+    mutate(
+      Tipo_Bos = "BN",
+      Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup),
+      Fuente = 
+    ) %>%
+    select(Nom_Predio, N_Area, Tipo_Bos, Sup_ha, Fuente)
+}
+
+cart_suelos <- function(areas, dec_sup = 2){
+  stopifnot(c("Nom_Predio", "Rol") %in% names(predios) %>% all())
+  areas %>%
+    rename_if(names(.) %>% stri_detect_regex("textcaus|clase_uso", case_insensitive = T), ~ "Clase_Uso") %>% 
+    mutate(
+      Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup),
+      Fuente = "Elaboración propia"
+    ) %>% 
+    select(Nom_Predio, Clase_Uso, Sup_ha, Fuente)
+}
+
+cart_predios <- function(predios, dec_sup = 2){
+  stopifnot(c("Nom_Predio", "Rol") %in% names(predios) %>% all())
+  predios %>%
+    mutate(
+      Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup),
+      Fuente = "Elaboración propia"
+    ) %>%
+    select(Nom_Predio, Rol, Sup_ha)
+}
+
+cart_hidro <- function(predios, buffer_to_lines){
+  read_sf(
+    system.file("Red_hidrografica.gdb", package = "dataPAS"),
+    wkt_filter = st_as_text(st_geometry(predios %>% st_transform(9155) %>% st_buffer(10000) %>% st_bbox() %>% st_as_sfc()))
+  ) %>%
+    st_intersection(predios %>% select(Nom_Predio)) %>%
+    mutate(
+      Tipo_Dren = if_else(
+        TIPO == 'Rio', 1,
+        if_else(TIPO == 'Estero', 2,
+                if_else(TIPO == 'Arroyo', 3,
+                        if_else(TIPO == 'Quebrada', 4, 5)))
+      ),
+      Tipo_Perma = case_when(
+        TIPO == 'Rio' ~ 1,
+        STRAHLER_N > 3 ~ 1,
+        .default = 2
+      )
+    ) %>%
+    filter(!Tipo_Dren == 5) %>%
+    select(Nom_Predio, Tipo_Dren, Tipo_Perma)
+}
+
+cart_caminos <- function(caminos, predios, include.OSM){
+  caminos.mop <- caminos %>%
+    st_zm() %>%
+    st_transform(st_crs(predios)) %>%
+    st_intersection(predios) %>%
+    st_collection_extract("LINESTRING") %>%
+    st_cast("LINESTRING")
+  
+  if (include.OSM) {
+    caminos.osm <- opq(bbox = st_bbox(predios %>% st_transform(4326))) %>%
+      add_osm_feature(
+        key = "highway",
+        value = c("motorway", "primary","secondary", "tertiary","residential", "living_street", "unclassified","service", "footway")
+      ) %>%
+      osmdata_sf() %>%
+      .$osm_lines %>%
+      st_transform(st_crs(predios)) %>%
+      mutate(incluido = map(name, ~ .x %in% caminos.mop$NOMBRE_CAMINO))
+    
+    caminos.int <- caminos.osm %>%
+      mutate(dist = st_distance(geometry, caminos.mop %>% st_union())) %>%
+      units::drop_units() %>%
+      dplyr::filter(official_name %in% caminos.mop$NOMBRE_CAMINO | (incluido == T & dist < 1))
+    
+    
+  } else {
+    
+  }
+  cami.int <- cami.osm %>% mutate(dist=st_distance(geometry,caminos %>% st_union())) %>% units::drop_units() %>%
+    filter(official_name %in% caminos$NOMBRE_CAMINO|(incluido==T & dist<1))
+  cami.mop.2 <- caminos %>%
+    mutate(Nom_Predio=predio$Nom_Predio[i],
+           Tipo_Cam=if_else(str_detect(CLASIFICACION,'Internacional|Nacional|Regional Principal'),1,
+                            if_else(str_detect(CLASIFICACION,'Regional Provincial|Regional Comunal'),2,
+                                    if_else(str_detect(CLASIFICACION,'Acceso'),3,4)))) %>%
+    dplyr::select(Nom_Predio,Tipo_Cam)
+  cami.osm.2 <- cami.osm %>% dplyr::filter(!osm_id %in% cami.int$osm_id) %>%
+    mutate(Nom_Predio=nombre.predio,Tipo_Cam=4) %>% dplyr::select(Nom_Predio,Tipo_Cam)
+  caminos <- caminos.mop[st_buffer(predio.shp,cut.x.buffer),]
+  cami.osm <- caminos.osm$osm_lines %>% st_transform(32719)
+  cami.osm$incluido <- sapply(cami.osm$name, function(nombre) any(str_detect(caminos$NOMBRE_CAMINO, nombre)))
+  cami.int <- cami.osm %>% mutate(dist=st_distance(geometry,caminos %>% st_union())) %>% units::drop_units() %>%
+    filter(official_name %in% caminos$NOMBRE_CAMINO|(incluido==T & dist<1))
+  cami.mop.2 <- caminos %>%
+    mutate(Nom_Predio=nombre.predio,
+           Tipo_Cam=if_else(str_detect(CLASIFICACION,'Internacional|Nacional|Regional Principal'),1,
+                            if_else(str_detect(CLASIFICACION,'Regional Provincial|Regional Comunal'),2,
+                                    if_else(str_detect(CLASIFICACION,'Acceso'),3,4)))) %>%
+    dplyr::select(Nom_Predio,Tipo_Cam)
+  cami.osm.2 <- cami.osm %>% dplyr::filter(!osm_id %in% cami.int$osm_id) %>%
+    mutate(Nom_Predio=nombre.predio,Tipo_Cam=4) %>% dplyr::select(Nom_Predio,Tipo_Cam)
+  if (is.null(OSM)) {
+    caminos <- cami.mop.2 %>% st_intersection(st_buffer(predio,cut.x.buffer)) %>% group_by(Nom_Predio,Tipo_Cam) %>% tally() %>% dplyr::select(-n) %>% ungroup() %>% mutate_at('Tipo_Cam',as.character)
+  } else {
+    caminos <- bind_rows(cami.mop.2,cami.osm.2) %>% st_intersection(st_buffer(predio,cut.x.buffer)) %>% group_by(Nom_Predio,Tipo_Cam) %>% tally() %>% dplyr::select(-n) %>% ungroup() %>% mutate_at('Tipo_Cam',as.character)
+  }
+}
 
 get_carto_digital <- function(
     areas,
@@ -150,151 +301,17 @@ get_carto_digital <- function(
     buffer_to_lines = NULL
   ){
 
-  cart_rodales <- function(rodales, TipoFor_num, dec_sup){
-    if (TipoFor_num) {
-      rodales %>%
-        mutate_at("Tipo_For", as.integer) %>%
-        mutate(
-          Tipo_Bos = "BN",
-          Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup)
-        ) %>%
-        select(Nom_Predio, N_Rodal, Tipo_Bos, Tipo_For, Sup_ha)
-    } else {
-      rodales %>%
-        mutate_if(
-          names(.) == "Tipo_For" & names(.) %>% is.character(),
-          list(Tipo_For = ~case_when(
-            .x %>% stri_detect_regex("alerce", case_insensitive = T) ~ "1",
-            .x %>% stri_detect_regex("araucaria", case_insensitive = T) ~ "2",
-            .x %>% stri_detect_regex("cordillera", case_insensitive = T) ~ "3",
-            .x %>% stri_detect_regex("guaitecas", case_insensitive = T) ~ "4",
-            .x %>% stri_detect_regex("magallanes", case_insensitive = T) ~ "5",
-            .x %>% stri_detect_regex("tepa", case_insensitive = T) ~ "6",
-            .x %>% stri_detect_regex("lenga", case_insensitive = T) ~ "7",
-            .x %>% stri_detect_regex("roble.*raul", case_insensitive = T) ~ "8",
-            .x %>% stri_detect_regex("roble.*hualo", case_insensitive = T) ~ "9",
-            .x %>% stri_detect_regex("siemprev", case_insensitive = T) ~ "10",
-            .x %>% stri_detect_regex("escle", case_insensitive = T) ~ "11",
-            .x %>% stri_detect_regex("palma", case_insensitive = T) ~ "12",
-            .default = .x
-          ))
-        ) %>%
-        mutate_at("Tipo_For", as.integer) %>%
-        mutate(
-          Tipo_Bos = "BN",
-          Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup)
-        ) %>%
-        select(Nom_Predio, N_Rodal, Tipo_Bos, Tipo_For, Sup_ha)
-    }
-  }
   carto_rodales <- cart_rodales(rodales, TipoFor_num, dec_sup)
 
-  cart_area <- function(areas, dec_sup){
-    areas %>%
-      mutate(
-        Tipo_Bos = "BN",
-        Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup)
-      ) %>%
-      select(Nom_Predio, N_a, Tipo_Bos, Sup_ha)
-  }
   carto_area <- cart_area(areas, dec_sup)
 
-  cart_suelos <- function(areas, dec_sup){
-    areas %>%
-      rename_if(names(.) %>% stri_detect_regex("textcaus|clase_uso", case_insensitive = T), ~ "Clase_uso") %>% 
-      mutate(Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup)) %>% 
-      select(Nom_Predio, Clase_uso, Sup_ha)
-  }
   carto_suelos <- cart_suelos(areas, dec_sup)
 
-  cart_predios <- function(predios, dec_sup){
-    predios %>%
-      mutate(Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup)) %>%
-      select(Nom_Predio, Rol, Sup_ha)
-  }
   carto_predios <- cart_predios(predios, dec_sup)
 
-  cart_hidro <- function(predios, buffer_to_lines){
-    read_sf(
-      system.file("Red_hidrografica.gdb", package = "dataPAS"),
-      wkt_filter = st_as_text(st_geometry(predios %>% st_transform(9155) %>% st_buffer(10000) %>% st_bbox() %>% st_as_sfc()))
-    ) %>%
-      st_intersection(predios %>% select(Nom_Predio)) %>%
-      mutate(
-        Tipo_Dren = if_else(
-          TIPO == 'Rio', 1,
-          if_else(TIPO == 'Estero', 2,
-                  if_else(TIPO == 'Arroyo', 3,
-                          if_else(TIPO == 'Quebrada', 4, 5)))
-        ),
-        Tipo_Perma = case_when(
-          TIPO == 'Rio' ~ 1,
-          STRAHLER_N > 3 ~ 1,
-          .default = 2
-        )
-      ) %>%
-      filter(!Tipo_Dren == 5) %>%
-      select(Nom_Predio, Tipo_Dren, Tipo_Perma)
-  }
   carto_hidro <- cart_hidro(red_hidro, predios)
 
-  cart_caminos <- function(caminos, predios, include.OSM){
-    caminos.mop <- caminos %>%
-      st_zm() %>%
-      st_transform(st_crs(predios)) %>%
-      st_intersection(predios) %>%
-      st_collection_extract("LINESTRING") %>%
-      st_cast("LINESTRING")
-
-    if (include.OSM) {
-      caminos.osm <- opq(bbox = st_bbox(predios %>% st_transform(4326))) %>%
-        add_osm_feature(
-          key = "highway",
-          value = c("motorway", "primary","secondary", "tertiary","residential", "living_street", "unclassified","service", "footway")
-        ) %>%
-        osmdata_sf() %>%
-        .$osm_lines %>%
-        st_transform(st_crs(predios)) %>%
-        mutate(incluido = map(name, ~ .x %in% caminos.mop$NOMBRE_CAMINO))
-
-      caminos.int <- caminos.osm %>%
-        mutate(dist = st_distance(geometry, caminos.mop %>% st_union())) %>%
-        units::drop_units() %>%
-        dplyr::filter(official_name %in% caminos.mop$NOMBRE_CAMINO | (incluido == T & dist < 1))
-
-
-    } else {
-
-    }
-    cami.int <- cami.osm %>% mutate(dist=st_distance(geometry,caminos %>% st_union())) %>% units::drop_units() %>%
-      filter(official_name %in% caminos$NOMBRE_CAMINO|(incluido==T & dist<1))
-    cami.mop.2 <- caminos %>%
-      mutate(Nom_Predio=predio$Nom_Predio[i],
-             Tipo_Cam=if_else(str_detect(CLASIFICACION,'Internacional|Nacional|Regional Principal'),1,
-                              if_else(str_detect(CLASIFICACION,'Regional Provincial|Regional Comunal'),2,
-                                      if_else(str_detect(CLASIFICACION,'Acceso'),3,4)))) %>%
-      dplyr::select(Nom_Predio,Tipo_Cam)
-    cami.osm.2 <- cami.osm %>% dplyr::filter(!osm_id %in% cami.int$osm_id) %>%
-      mutate(Nom_Predio=nombre.predio,Tipo_Cam=4) %>% dplyr::select(Nom_Predio,Tipo_Cam)
-    caminos <- caminos.mop[st_buffer(predio.shp,cut.x.buffer),]
-    cami.osm <- caminos.osm$osm_lines %>% st_transform(32719)
-    cami.osm$incluido <- sapply(cami.osm$name, function(nombre) any(str_detect(caminos$NOMBRE_CAMINO, nombre)))
-    cami.int <- cami.osm %>% mutate(dist=st_distance(geometry,caminos %>% st_union())) %>% units::drop_units() %>%
-      filter(official_name %in% caminos$NOMBRE_CAMINO|(incluido==T & dist<1))
-    cami.mop.2 <- caminos %>%
-      mutate(Nom_Predio=nombre.predio,
-             Tipo_Cam=if_else(str_detect(CLASIFICACION,'Internacional|Nacional|Regional Principal'),1,
-                              if_else(str_detect(CLASIFICACION,'Regional Provincial|Regional Comunal'),2,
-                                      if_else(str_detect(CLASIFICACION,'Acceso'),3,4)))) %>%
-      dplyr::select(Nom_Predio,Tipo_Cam)
-    cami.osm.2 <- cami.osm %>% dplyr::filter(!osm_id %in% cami.int$osm_id) %>%
-      mutate(Nom_Predio=nombre.predio,Tipo_Cam=4) %>% dplyr::select(Nom_Predio,Tipo_Cam)
-    if (is.null(OSM)) {
-      caminos <- cami.mop.2 %>% st_intersection(st_buffer(predio,cut.x.buffer)) %>% group_by(Nom_Predio,Tipo_Cam) %>% tally() %>% dplyr::select(-n) %>% ungroup() %>% mutate_at('Tipo_Cam',as.character)
-    } else {
-      caminos <- bind_rows(cami.mop.2,cami.osm.2) %>% st_intersection(st_buffer(predio,cut.x.buffer)) %>% group_by(Nom_Predio,Tipo_Cam) %>% tally() %>% dplyr::select(-n) %>% ungroup() %>% mutate_at('Tipo_Cam',as.character)
-    }
-  }
+  carto_caminos <- cart_caminos(red_hidro, predios)
 
   return(
     list(

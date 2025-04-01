@@ -56,7 +56,7 @@ shinyServer(function(input,output,session){
     if(!all(c('PID','Tipo_fores', 'Subtipo_fo', 'Regulacion') %in% names(LB()))){
       shinyalerta(names_act = names(st_drop_geometry(LB())), names_req = c('PID', 'Tipo_fores', 'Subtipo_fo', 'Regulacion'))
     } else {
-      notify_success("Perfecto!", timeout = 1500, position = "right-bottom")
+      notify_success("Perfecto!", timeout = 3000, position = "right-bottom")
     }
   })
   
@@ -67,7 +67,7 @@ shinyServer(function(input,output,session){
     if(!all(c('Obra', 'Temporal') %in% names(obras()))){
       shinyalerta(names_act = names(st_drop_geometry(obras())), names_req = c('Obra', 'Temporal'))
     } else {
-      notify_success("Perfecto!", timeout = 1500, position = "right-bottom")
+      notify_success("Perfecto!", timeout = 3000, position = "right-bottom")
     }
   })
   
@@ -82,7 +82,7 @@ shinyServer(function(input,output,session){
     if(!all(c('N_Predio','Nom_Predio','Rol','Propietari') %in% names(predios()))){
       shinyalerta(names_act = names(st_drop_geometry(predios())), names_req = c('N_Predio', 'Nom_Predio', 'Rol', 'Propietari'))
     } else {
-      notify_success("Perfecto!", timeout = 1500, position = "right-bottom")
+      notify_success("Perfecto!", timeout = 3000, position = "right-bottom")
     }
   })
   
@@ -94,7 +94,7 @@ shinyServer(function(input,output,session){
     if(!all(c('Clase_uso') %in% names(suelos()))){
       shinyalerta(shinyalerta(names_act = names(st_drop_geometry(suelos())), names_req = c('Clase_uso')))
     } else {
-      notify_success("Perfecto!", timeout = 1500, position = "right-bottom")
+      notify_success("Perfecto!", timeout = 3000, position = "right-bottom")
     }
   })
   
@@ -210,11 +210,6 @@ shinyServer(function(input,output,session){
     shinyjs::enable("apply_order")
   })
   
-  observeEvent(input$apply_order,{
-    req(shp_ordered())
-    notify_success("Shapefile ordenado!", timeout = 3000, position = "right-bottom")
-  })
-  
   shp_ordered <- eventReactive(input$apply_order,{
     req(shp_to_order())
     shp_to_order() %>% 
@@ -231,6 +226,7 @@ shinyServer(function(input,output,session){
     )
     req(shp_ordered())
     remove_modal_spinner()
+    notify_success("Shapefile ordenado!", timeout = 3000, position = "right-bottom")
   })
   
   downfile(id = "down_sf_ordered", x = shp_ordered(), name_save = str_c(shp_to_order_name(),"_ord"))
@@ -246,39 +242,51 @@ shinyServer(function(input,output,session){
   
   observeEvent(input$check_carto,{
     req(shp_check(), input$select_sf_check)
-    check_carto(x = shp_check(), id = input$select_sf_check)
+    check_carto_nueva(x = shp_check(), id = input$select_sf_check)
   })
   
   # Obtener y descargar cartografía digital ----
-  areas_def <- leer_sf(id = "cart_area", crs = crs(), fx = function(x){x %>% mutate(Tipo_Bos = "BN")})
+  crs_carto <- reactive({
+    ifelse(input$huso == "18S", 32718, 32719)
+  })
+  # AREAS DE CORTA
+  areas_def <- leer_sf(id = "cart_area", crs = crs_carto(), fx = function(x){x %>% mutate(Tipo_Bos = "BN")})
   observeEvent(areas_def(),{
-    if(!all(c('Nom_Predio', 'N_a', 'Sup_ha') %in% names(areas_def()))){
-      shinyalerta()
+    if(!all(c('Nom_Predio', 'N_Area') %in% names(areas_def()))){
+      shinyalerta(names_act = names(areas_def()), names_req = c('Nom_Predio', 'N_Area'))
+    }
+    if((areas_def() %>% st_transform(4326) %>% st_make_valid() %>% st_union() %>% st_centroid() %>% st_coordinates() %>% .[,1] >= -72 & input$huso == "18S") |
+       (areas_def() %>% st_transform(4326) %>% st_make_valid() %>% st_union() %>% st_centroid() %>% st_coordinates() %>% .[,1] < -72 & input$huso == "19S")){
+      shinyalert(
+        title = "Ups!", 
+        text = "Coordenadas del shp no coinciden con la seleccionada",
+        type = "error",
+        closeOnEsc = T, 
+        showConfirmButton = T,
+        animation = T
+      )
     }
   })
+  n_rca_areas <- RCA_SRV("rca_areas")
   
-  rodales_def <- leer_sf(id = "cart_rodales", crs = crs(), fx = function(x){x %>% mutate(Tipo_Bos = "BN")})
+  # RODALES
+  rodales_def <- leer_sf(id = "cart_rodales", crs = crs_carto(), fx = function(x){x %>% mutate(Tipo_Bos = "BN")})
   observeEvent(rodales_def(),{
-    if(!all(c('N_Rodal', 'Tipo_For', 'Sup_ha') %in% names(rodales_def()))){
-      shinyalerta()
+    if(!all(c('N_Rodal', 'Tipo_For') %in% names(rodales_def()))){
+      shinyalerta(names_act = names(rodales_def()), names_req = c('N_Rodal', 'Tipo_For'))
     }
   })
+  n_rca_rodales <- RCA_SRV("rca_rodales")
   
-  predios_def <- leer_sf(id = "cart_predios", crs = crs())
+  # PREDIOS
+  predios_def <- leer_sf(id = "cart_predios", crs = crs_carto())
   observeEvent(predios_def(),{
     if(!all(c('N_Predio', 'Nom_Predio', 'Rol') %in% names(predios_def()))){
-      shinyalerta()
+      shinyalerta(names_act = names(predios_def()), names_req = c('N_Predio', 'Nom_Predio', 'Rol'))
     }
   })
   
-  hidro <- leer_sf(id = "hidro", crs = crs(), fx = function(x){
-    x %>% rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII"))))
-  })
-  observeEvent(hidro(),{
-    if(!all(c('Nombre', 'Tipo', 'Perma') %in% names(hidro()))){
-      shinyalerta()
-    }
-  })
+  # DEM
   DEM <- reactive({
     req(input$dem)
     dem <- read_stars(input$dem) 
@@ -290,13 +298,15 @@ shinyServer(function(input,output,session){
   iv$add_rule("NOMPREDIO", sv_required())
   iv$enable()
   
+  # CARTOGRAFÍA DIGITAL
   carto_digital <- eventReactive(input$get_carto_btn,{
     req(c(area_def(), rodales_def(), predios_def(), input$dem, input$get_carto_btn))
     get_carto_digital(
       areas = areas_def(), 
       rodales = rodales_def(), 
       predios = predios_def(), 
-      tipo_for = input$tipo_for
+      tipo_for = input$tipo_for,
+      DEM = DEM()
     )
   })
   
@@ -316,7 +326,7 @@ shinyServer(function(input,output,session){
   
   downfile(id = "down_carto", x = carto_digital(), name_save = c("Area","Rodales","Suelos","Caminos","Hidrografia","Curvas_niv","Limite_Predial","Uso_actual","Rangos_pend"))
   
-  # Crear accesos ----
+  # ANALISIS METODOLOGICO ----
   
 })
 

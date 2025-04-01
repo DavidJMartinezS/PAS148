@@ -21,14 +21,19 @@ group_by_distance <- function(x, distance){
   return(components(g)$membership)
 }
 
-shinyalerta <- function(){
+shinyalerta <- function(names_act, names_req){
   shinyalert(
     title = "Ups!", 
-    text = "Shapefile sin los campos requeridos",
+    html = TRUE,
+    text = tags$p(
+      "Shapefile sin los campos requeridos ", br(), br(),
+      tags$b("Requeridos: "), str_c(names_req %>% shQuote(), collapse = ", "), br(), br(),
+      tags$b("Faltan: "), str_c(setdiff(names_req, names_act) %>% shQuote(), collapse = ", ")
+    ),
     type = "error",
     closeOnEsc = T, 
     showConfirmButton = T,
-    animation = TRUE
+    animation = T
   )
 }
 
