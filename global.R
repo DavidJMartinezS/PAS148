@@ -64,13 +64,12 @@ provincias_list <- read_sf(system.file("Comunas.gdb", package = "dataPAS")) %>%
   pull(PROVINCIA)
   
 carrousel_info <- function(){
-  bs_carousel(id = "hidro_example", use_indicators = T) %>%
+  bs_carousel(id = "hidro_example", use_indicators = T, use_controls = T) %>%
     bs_set_data(interval = FALSE) %>%
-    bs_append(content = bs_carousel_image(src = "www/unnamed.jpg")) %>%
-    bs_append(content = bs_carousel_image(src = "www/clip.png")) %>%
-    bs_append(content = bs_carousel_image(src = "www/buffer_2000.png")) %>%
-    bs_append(content = bs_carousel_image(src = "www/crop.png")) %>%
-    bs_append(content = bs_carousel_image(src = "www/crop_2000.png")) %>%  
-    bs_append(content = bs_carousel_image(src = "www/crop_by_row.png")) %>%  
-    bs_append(content = bs_carousel_image(src = "www/crop_by_row_2000.png"))
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/clip.png?raw=true")) %>%
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/buffer_2000.png?raw=true")) %>%
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/crop.png?raw=true")) %>%
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/crop_2000.png?raw=true")) %>%  
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/crop_by_row.png?raw=true")) %>%  
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/crop_by_row_2000.png?raw=true"))
 }

@@ -296,15 +296,12 @@ shinyUI(
               ),
               uiOutput("add_hidro_ui"),
               div(style = "margin-top: -10px"),
-              span(
-                id = "flex",
-                materialSwitch(
-                  inputId = "add_CN",
-                  label = "¿Crear capa de curvas de nivel?",
-                  status = "success"
-                ),
-                uiOutput("add_CN_ui")
+              materialSwitch(
+                inputId = "add_CN",
+                label = "¿Crear capa de curvas de nivel?",
+                status = "success"
               ),
+              uiOutput("add_CN_ui"),
               div(style = "margin-top: -10px"),
               hr(),
               
@@ -326,10 +323,10 @@ shinyUI(
             ),
             box(
               width = 6,
-              # title = "Generar Anexos",
-              solidHeader = F,
+              title = "Tipos de corte para caminos, hidrografía y curvas de nivel",
+              solidHeader = T,
               status = "success",
-              height = "450px",
+              height = "400px",
               carrousel_info()  
             )
           )

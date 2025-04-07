@@ -301,6 +301,7 @@ shinyServer(function(input,output,session){
             id = "flex",
             div(id = "inline", pickerInput(inputId = "cut_cam", label = "Corte", choices = c("clip", "buffer", "crop", "crop_by_row"), selected = "clip")),
             div(id = "inline", numericInput(inputId = "buffer_cam", label = "Buffer", value = 0, step = 10, width = "100px"), style = "margin-left: 25px;"),
+            div(tags$b("m"), style = "margin-top: 10px;"),
             style = "margin-top: -10px; margin-bottom: 5px"
           ),
           p("Caminos serán creados a partir de la red vial del MOP actualizado al 07-02-2024 (descargar ",
@@ -328,6 +329,7 @@ shinyServer(function(input,output,session){
             id = "flex",
             div(id = "inline", pickerInput(inputId = "cut_hidro", label = "Corte", choices = c("clip", "buffer", "crop", "crop_by_row"), selected = "clip")),
             div(id = "inline", numericInput(inputId = "buffer_hidro", label = "Buffer", value = 0, step = 10, width = "100px"), style = "margin-left: 25px;"),
+            div(tags$b("m"), style = "margin-top: 10px;"),
             style = "margin-top: -10px; margin-bottom: 5px"
           ),
           p("Hidrografía será creada a partir de la hidrografía subida a Geoportal actualizada al 31-12-2022 (link ", 
@@ -351,16 +353,23 @@ shinyServer(function(input,output,session){
     output$add_CN_ui <- renderUI({
       if(input$add_CN){
         div(
-          id = "inline",
-          numericInputIcon(
-            inputId = "step",
-            label = "Intervalo",
-            value = 10,
-            step = 5,
-            icon = icon("ruler-horizontal"),
-            width = "100px"
+          id = "flex",
+          div(
+            id = "inline", 
+            pickerInput(inputId = "cut_hidro", label = "Corte", choices = c("clip", "buffer", "crop", "crop_by_row"), selected = "clip")
           ),
-          style = "margin-top: -8px; margin-left: 20px;"
+          div(
+            id = "inline", 
+            numericInput(inputId = "buffer_hidro", label = "Buffer", value = 0, step = 10, width = "50px"),
+            style = "margin-left: 20px;"
+          ),
+          div(tags$b("m"), style = "margin-top: 8px;"),
+          div(
+            id = "inline",
+            numericInputIcon(inputId = "step", label = "Intervalo", value = 10, step = 5, icon = icon("ruler-horizontal"), width = "50px"),
+            style = "margin-left: 20px;"
+          ),
+          style = "margin-top: -8px;"
         )
       }
     })
