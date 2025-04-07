@@ -45,9 +45,15 @@ shinyUI(
       use_bs_popover(),
       shinyEffects::setShadow(class = "dropdown-menu"),
       shinyEffects::setShadow(class = "box"),
-      tags$head(tags$style(HTML(".small-box {height: 120px;}"))),
+      includeCSS('https://fonts.googleapis.com/icon?family=Material+Icons'),
       tags$head(tags$style(
-        ".progress-bar{background-color:#3c763d;}"
+        HTML(
+          ".small-box {height: 120px;}
+          .progress-bar{background-color:#3c763d;}
+          #flex {display:flex;}
+          #inline label{display: table-cell; text-align: center; vertical-align: middle;}
+          #inline .form-group{display: table-row;}"
+        )
       )),
       tabItems(
         tabItem(
@@ -196,22 +202,39 @@ shinyUI(
               title = "Generar cartografía",
               solidHeader = T,
               status = "success",
-              # HUSO 
-              prettyRadioButtons(
-                inputId = "huso",
-                label = "Huso:", 
-                choices = c("18S", "19S"),
-                selected = "19S",
-                inline = TRUE, 
-                status = "success",
-                fill = TRUE
+              
+              # HUSO, DECIMALES
+              span(
+                id = "flex",
+                div(
+                  prettyRadioButtons(
+                    inputId = "huso",
+                    label = "Huso:", 
+                    choices = c("18S", "19S"),
+                    selected = "19S",
+                    inline = TRUE, 
+                    status = "success",
+                    fill = TRUE
+                  ),
+                  style = "margin-top: 0px; "
+                ),
+                div(
+                  numericInput(
+                    inputId = "n_dec",
+                    label = "N° decimales:", 
+                    value = 2, 
+                    min = 0, 
+                    max = 4
+                  ),
+                  style = "margin-top: 0px; margin-left: 20px;"
+                )
               ),
               
               # AREAS DE CORTA
               leer_sfUI("cart_area", "Ingrese shapefile de áreas de corta") %>% 
                 add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_Area'"),
               div(style = "margin-top: -10px"),
-              RCA_UI("rca_areas"),
+              # RCA_UI("rca_areas"),
               div(style = "margin-top: -30px"),
               hr(),
               
@@ -224,8 +247,8 @@ shinyUI(
                 label_on = "Tipo_For (numerico): ej., 11",
                 label_off = "Tipo_For (caracter): ej., 'Esclerófilo'"
               ),
-              RCA_UI("rca_rodales"),
-              div(style = "margin-top: -30px"),
+              # RCA_UI("rca_rodales"),
+              div(style = "margin-top: -10px"),
               hr(),
               
               # PREDIOS
@@ -234,42 +257,10 @@ shinyUI(
               div(style = "margin-top: -10px"),
               hr(),
               
-              # CAMINOS 
-              h5("Caminos", style = "font-weight: bold;"),
-                p("Caminos serán creados a partir de la red vial del MOP actualizado al 07-02-2024 (descargar ",
-                  a("aqui", .noWS = "outside", href = "https://mapas.mop.gov.cl/red-vial/Red_Vial_Chile.zip"),
-                  ") ¿Desea crear otra capa de caminos a partir de información de Google?"),
-              switchInput(
-                inputId = "add_cam_osm",
-                size = "mini",
-                onLabel = "Si",
-                offLabel = "No",
-                onStatus = "success"
-              ),
-              uiOutput("add_cam_osm_ui"),
-              div(style = "margin-top: -10px"),
-              hr(),
-              
-              # HIDROGRAFÍA
-              h5("Hidrografía", style = "font-weight: bold;"),
-              p("Hidrografía será creada a partir de la hidrografía de IDE chile actualizada al 31-12-2022 (link ", 
-                a("aquí", .noWS = "outside", href = "https://www.geoportal.cl/geoportal/catalog/36436/Hidrograf%C3%ADa%20de%20la%20regi%C3%B3n%20de%20Arica%20a%20la%20regi%C3%B3n%20de%20Los%20Lagos"),
-                ") ¿Desea crear capa hidrografíca a partir de información de Google? (De lo contrario )"),
-              switchInput(
-                inputId = "add_hidro_osm",
-                size = "mini",
-                onLabel = "Si",
-                offLabel = "No",
-                onStatus = "success"
-              ),
-              uiOutput("add_hidro_osm_ui"),
-              div(style = "margin-top: -10px"),
-              hr(),
-              
               # DEM
               fileInput(
                 inputId = "dem",
-                  label = "Ingresar DEM de Alos Palsar",
+                label = "Ingresar DEM de Alos Palsar (12,5 x 12,5m)",
                 multiple = F,
                 accept = c(".tif",".jp2"),
                 buttonLabel = "Seleccionar",
@@ -279,8 +270,48 @@ shinyUI(
               div(style = "margin-top: -10px"),
               hr(),
               
+              # USO ACTUAL
+              materialSwitch(
+                inputId = "add_uso_actual",
+                label = "¿Crear capa de uso actual?",
+                status = "success"
+              ),
+              uiOutput("add_uso_actual_ui"),
+              div(style = "margin-top: -10px"),
+              hr(),
+              
+              # BASES CARTOGRAFICAS
+              h4("Bases cartográficas", style = "font-weight: bold;"),
+              materialSwitch(
+                inputId = "add_cam",
+                label = "¿Crear capa de caminos?",
+                status = "success"
+              ),
+              uiOutput("add_cam_ui"),
+              div(style = "margin-top: -10px"),
+              materialSwitch(
+                inputId = "add_hidro",
+                label = "¿Crear capa de Hidrografía?",
+                status = "success"
+              ),
+              uiOutput("add_hidro_ui"),
+              div(style = "margin-top: -10px"),
+              span(
+                id = "flex",
+                materialSwitch(
+                  inputId = "add_CN",
+                  label = "¿Crear capa de curvas de nivel?",
+                  status = "success"
+                ),
+                uiOutput("add_CN_ui")
+              ),
+              div(style = "margin-top: -10px"),
+              hr(),
+              
               # NOMBRE PREDIO
               textInput("NOMPREDIO", "Ingrese un sufijo para el nombre de los archivos", placeholder = "Ej: CHILICAUQUENALTO, KIMAL, etc"),
+              
+              # GET AND DOWNLOAD CARTOGRAFIA 
               div(
                 actionBttn(
                   inputId = "get_carto_btn",
@@ -289,15 +320,17 @@ shinyUI(
                   size = "sm",
                   color = "success"
                 ),
-                renderUI("down_carto_ui"),
+                downfile_ui("down_carto_ui"),
                 style = "display: flex; align-items: center;"
               )
             ),
             box(
               width = 6,
-              title = "Generar Anexos",
-              solidHeader = T,
-              status = "success"
+              # title = "Generar Anexos",
+              solidHeader = F,
+              status = "success",
+              height = "450px",
+              carrousel_info()  
             )
           )
         ),

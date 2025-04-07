@@ -250,9 +250,15 @@ shinyServer(function(input,output,session){
     ifelse(input$huso == "18S", 32718, 32719)
   })
   # AREAS DE CORTA
-  areas_def <- leer_sf(id = "cart_area", crs = crs_carto(), fx = function(x){x %>% mutate(Tipo_Bos = "BN")})
+  areas_def <- leer_sf(id = "cart_area", crs = crs_carto(), fx = function(x){
+    x %>%
+      rename_if(names(.) %>% stri_detect_regex("textcaus|clase_uso", case_insensitive = T), ~ "Clase_Uso") %>% 
+      rename_if(names(.) %>% stri_detect_regex("n_a|n_area", case_insensitive = T), ~ "N_Area") %>% 
+      rename_if(names(.) %>% stri_detect_regex("nom_predio", case_insensitive = T), ~ "Nom_Predio") %>% 
+      mutate(Tipo_Bos = "BN")
+  })
   observeEvent(areas_def(),{
-    if(!all(c('Nom_Predio', 'N_Area') %in% names(areas_def()))){
+    if(!all(c('Nom_Predio', 'N_Area', 'Clase_Uso') %in% names(areas_def()))){
       shinyalerta(names_act = names(areas_def()), names_req = c('Nom_Predio', 'N_Area'))
     }
     if((areas_def() %>% st_transform(4326) %>% st_make_valid() %>% st_union() %>% st_centroid() %>% st_coordinates() %>% .[,1] >= -72 & input$huso == "18S") |
@@ -267,7 +273,7 @@ shinyServer(function(input,output,session){
       )
     }
   })
-  n_rca_areas <- RCA_SRV("rca_areas")
+  # n_rca_areas <- RCA_SRV("rca_areas")
   
   # RODALES
   rodales_def <- leer_sf(id = "cart_rodales", crs = crs_carto(), fx = function(x){x %>% mutate(Tipo_Bos = "BN")})
@@ -276,13 +282,125 @@ shinyServer(function(input,output,session){
       shinyalerta(names_act = names(rodales_def()), names_req = c('N_Rodal', 'Tipo_For'))
     }
   })
-  n_rca_rodales <- RCA_SRV("rca_rodales")
+  # n_rca_rodales <- RCA_SRV("rca_rodales")
   
   # PREDIOS
   predios_def <- leer_sf(id = "cart_predios", crs = crs_carto())
   observeEvent(predios_def(),{
     if(!all(c('N_Predio', 'Nom_Predio', 'Rol') %in% names(predios_def()))){
       shinyalerta(names_act = names(predios_def()), names_req = c('N_Predio', 'Nom_Predio', 'Rol'))
+    }
+  })
+  
+  # CAMINOS 
+  observeEvent(input$add_cam,{
+    output$add_cam_ui <- renderUI({
+      if(input$add_cam){
+        div(
+          div(
+            id = "flex",
+            div(id = "inline", pickerInput(inputId = "cut_cam", label = "Corte", choices = c("clip", "buffer", "crop", "crop_by_row"), selected = "clip")),
+            div(id = "inline", numericInput(inputId = "buffer_cam", label = "Buffer", value = 0, step = 10, width = "100px"), style = "margin-left: 25px;"),
+            style = "margin-top: -10px; margin-bottom: 5px"
+          ),
+          p("Caminos serán creados a partir de la red vial del MOP actualizado al 07-02-2024 (descargar ",
+            a("aqui", .noWS = "outside", href = "https://mapas.mop.gov.cl/red-vial/Red_Vial_Chile.zip"),
+            ") ¿Desea crear otra capa de caminos a partir de información de Google?"
+          ),
+          switchInput(
+            inputId = "add_cam_osm",
+            size = "mini",
+            onLabel = "Si",
+            offLabel = "No",
+            onStatus = "success"
+          )
+        )
+      }
+    })
+  })
+  
+  # HIDROGRAFIA
+  observeEvent(input$add_hidro,{
+    output$add_hidro_ui <- renderUI({
+      if(input$add_hidro){
+        div(
+          div(
+            id = "flex",
+            div(id = "inline", pickerInput(inputId = "cut_hidro", label = "Corte", choices = c("clip", "buffer", "crop", "crop_by_row"), selected = "clip")),
+            div(id = "inline", numericInput(inputId = "buffer_hidro", label = "Buffer", value = 0, step = 10, width = "100px"), style = "margin-left: 25px;"),
+            style = "margin-top: -10px; margin-bottom: 5px"
+          ),
+          p("Hidrografía será creada a partir de la hidrografía subida a Geoportal actualizada al 31-12-2022 (link ", 
+            a("aquí", .noWS = "outside", href = "https://www.geoportal.cl/geoportal/catalog/36436/Hidrograf%C3%ADa%20de%20la%20regi%C3%B3n%20de%20Arica%20a%20la%20regi%C3%B3n%20de%20Los%20Lagos"),
+            ") ¿Desea crear capa hidrografíca a partir de información de Google? (De lo contrario )"
+          ),
+          switchInput(
+            inputId = "add_hidro_osm",
+            size = "mini",
+            onLabel = "Si",
+            offLabel = "No",
+            onStatus = "success"
+          )
+        )
+      }
+    })
+  })
+  
+  # CURVAS DE NIVEL
+  observeEvent(input$add_CN,{
+    output$add_CN_ui <- renderUI({
+      if(input$add_CN){
+        div(
+          id = "inline",
+          numericInputIcon(
+            inputId = "step",
+            label = "Intervalo",
+            value = 10,
+            step = 5,
+            icon = icon("ruler-horizontal"),
+            width = "100px"
+          ),
+          style = "margin-top: -8px; margin-left: 20px;"
+        )
+      }
+    })
+  })
+  
+  # USO ACTUAL
+  observeEvent(input$add_uso_actual,{
+    output$add_uso_actual_ui <- renderUI({
+      if(input$add_uso_actual){
+        div(
+          leer_sfUI("catastro", "Ingrese capa del catastro de CONAF") %>% 
+            add_help_text(title = "Campos minimos requeridos:\n'USO', 'SUBUSO', 'ESTRUCTURA'"),
+          div(style = "margin-top: -10px"),
+          leer_sfUI("suelos_uso_act", "Ingrese capa de suelos del CIREN") %>% 
+            add_help_text(title = "Campos minimos requeridos:\n'TEXTCAUS'")
+        )
+      }
+    })
+  })
+  
+  catastro <- leer_sf(
+    id = "catastro", 
+    crs = crs_carto(), 
+    fx = function(x){x %>% rename_all(~ if_else(. == "geometry", ., str_to_upper(stri_trans_general(.,"Latin-ASCII"))))},
+    wkt_filter = st_as_text(st_geometry(predios_def() %>% st_union()))
+  )
+  observeEvent(catastro(),{
+    if(!all(c('USO', 'SUBUSO', 'ESTRUCTURA') %in% names(catastro()))){
+      shinyalerta(names_act = names(catastro()), names_req = c('USO', 'SUBUSO', 'ESTRUCTURA'))
+    }
+  })
+  suelos_uso_act <- leer_sf(
+    id = "suelos_uso_act", 
+    crs = crs_carto(),
+    fx = function(x){x %>% rename_all(~ if_else(. == "geometry", ., str_to_upper(stri_trans_general(.,"Latin-ASCII"))))},
+    wkt_filter = st_as_text(st_geometry(predios_def() %>% st_union()))
+  )
+  observeEvent(suelos_uso_act(),{
+    if(!all(c('TEXTCAUS') %in% names(suelos_uso_act()))){
+      shinyalerta(names_act = names(suelos_uso_act()), names_req = c('TEXTCAUS'))
     }
   })
   
@@ -294,6 +412,7 @@ shinyServer(function(input,output,session){
     return(dem)
   })
   
+  # NOMBRE PREDIO
   iv <- InputValidator$new()
   iv$add_rule("NOMPREDIO", sv_required())
   iv$enable()
@@ -324,7 +443,11 @@ shinyServer(function(input,output,session){
     })
   })
   
-  downfile(id = "down_carto", x = carto_digital(), name_save = c("Area","Rodales","Suelos","Caminos","Hidrografia","Curvas_niv","Limite_Predial","Uso_actual","Rangos_pend"))
+  downfile(
+    id = "down_carto", 
+    x = carto_digital(), 
+    name_save = c("Area", "Rodales", "Suelos", "Rangos_pend", "Caminos", "Hidrografia","Curvas_niv", "Limite_Predial", "Uso_actual")
+  )
   
   # ANALISIS METODOLOGICO ----
   

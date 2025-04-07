@@ -4,13 +4,13 @@ RCA_UI <- function(id){
     tags$head(
       tags$style(
         type = "text/css", 
-        "#qwe {display: flex; margin-left: 15px}
+        "#rcaui {display: flex; margin-left: 15px}
         #inline label{display: table-cell; text-align: center; vertical-align: middle;} 
         #inline .form-group{display: table-row;}"
       )
     ),
     span(
-      id = "qwe",
+      id = "rcaui",
       materialSwitch(
         inputId = ns("from_rca"),
         label = "¿misma capa de la RCA?",

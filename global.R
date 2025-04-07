@@ -1,3 +1,4 @@
+library(bsicons)
 library(bslib)
 library(bsplus)
 library(dataPAS)
@@ -10,6 +11,7 @@ library(leafem)
 library(leafpm)
 library(mapedit)
 library(openxlsx2)
+library(osmdata)
 library(purrr)
 library(sf)
 library(shiny)
@@ -48,10 +50,27 @@ provincias_list <- read_sf(system.file("Comunas.gdb", package = "dataPAS")) %>%
   st_drop_geometry() %>% 
   group_by(CUT_REG, REGION, PROVINCIA) %>% 
   tally() %>% ungroup() %>% 
-  mutate_at("CUT_REG", ~factor(., levels = c("15", "01", "02", "03", "04", "05", "13", "06", "07", "16", "08","09","14","10","11","12"))) %>% 
+  mutate_at(
+    "CUT_REG", 
+    ~factor(
+      ., 
+      levels = c("15", "01", "02", "03", "04", "05", "13", "06", "07", "16", "08","09","14","10","11","12")
+    )
+  ) %>% 
   group_by(CUT_REG, REGION) %>% 
   summarize(PROVINCIA = list(PROVINCIA)) %>% 
   mutate(PROVINCIA = setNames(PROVINCIA, REGION)) %>% 
   arrange(CUT_REG) %>% 
   pull(PROVINCIA)
   
+carrousel_info <- function(){
+  bs_carousel(id = "hidro_example", use_indicators = T) %>%
+    bs_set_data(interval = FALSE) %>%
+    bs_append(content = bs_carousel_image(src = "www/unnamed.jpg")) %>%
+    bs_append(content = bs_carousel_image(src = "www/clip.png")) %>%
+    bs_append(content = bs_carousel_image(src = "www/buffer_2000.png")) %>%
+    bs_append(content = bs_carousel_image(src = "www/crop.png")) %>%
+    bs_append(content = bs_carousel_image(src = "www/crop_2000.png")) %>%  
+    bs_append(content = bs_carousel_image(src = "www/crop_by_row.png")) %>%  
+    bs_append(content = bs_carousel_image(src = "www/crop_by_row_2000.png"))
+}
