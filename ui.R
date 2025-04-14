@@ -4,16 +4,15 @@ shinyUI(
     dashboardHeader(
       title = tagList(
         span(class = "logo-lg", "PAS 148"),
-        img(src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAYFBMVEXWx7jXyLnYybrOwLGyp5upnpTQwrPLva/BtKejmY5oY19TUU9NTEpsaGOck4k/Pz88PD04OTo0NTdiXlssLzK+sKR0bmkxMzWPh39GRkV8dm+GfneMg3xZVlS4rKDfz78rckUCAAAA1UlEQVR4AbTSVQKEIBAAUGbEoWs2bL3/LRc/rc81qEeD+P8DiAg1gjtqZCsbJKWvRsY676yRwWk8mYgpF+biX/79OaMsOQVjvimn7oRA35J6gQhxuGIzZLsPBWrMF1RcJoKawniDXZlrvGO6YimjggekJfsVAeCK9YklO0mkbsYUoELOxbmwXbGq/g6Fu3vETZl+6tsd9RnbKEmQQDEXVnCa7ZiWdUPcPktZCM4bz3mJn09ccmeux9mnzF3HJc0EV431sOtpR3q6JkY2CI8X7IF+oyoAAGbZDRcCw+B1AAAAAElFTkSuQmCC")
+        img(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/logo_geobiota.png?raw=true")
       ),
-      tags$li(class = "dropdown",
-              id = "logo",
-              tags$a(tags$img(height = "40px",
-                              src="https://geobiota.com/img/logo-header.svg")
-              ),
-              tags$style(
-                HTML(
-                "/* move logo to center */
+      tags$li(
+        class = "dropdown",
+        id = "logo",
+        tags$a(tags$img(height = "40px", src="https://raw.githubusercontent.com/DavidJMartinezS/PAS148/2285bc0c6ad63ade23e8c97d264844972905e38e/www/logo-header.svg")),
+        tags$style(
+          HTML(
+            "/* move logo to center */
                   #logo {
                       position: absolute;
                       left: 50%;
@@ -25,8 +24,8 @@ shinyUI(
                       background-color: transparent !important;
                       color: transparent !important;
                   }"
-                )
-              )
+          )
+        )
       ),
       userOutput("user")
     ),
@@ -36,7 +35,7 @@ shinyUI(
         menuItem("Ayuda cartográfica", tabName = "ayuda", icon = icon("circle-check")),
         menuItem("Insumos Cartográficos", id = "info", icon = icon("layer-group"),
           menuSubItem("Cartografía base", tabName = "carto", icon = icon("water")),
-          menuSubItem("Accesos al Predio", tabName = "access", icon = icon("route"))
+          menuSubItem("Anexos", tabName = "access", icon = icon("route"))
         )
       )
     ),
@@ -45,7 +44,7 @@ shinyUI(
       use_bs_popover(),
       shinyEffects::setShadow(class = "dropdown-menu"),
       shinyEffects::setShadow(class = "box"),
-      includeCSS('https://fonts.googleapis.com/icon?family=Material+Icons'),
+      # includeCSS('https://fonts.googleapis.com/icon?family=Material+Icons'),
       tags$head(tags$style(
         HTML(
           ".small-box {height: 120px;}
@@ -207,36 +206,47 @@ shinyUI(
               span(
                 id = "flex",
                 div(
+                  id = "inline",
                   prettyRadioButtons(
                     inputId = "huso",
-                    label = "Huso:", 
+                    label = "Huso:  ", 
                     choices = c("18S", "19S"),
                     selected = "19S",
                     inline = TRUE, 
                     status = "success",
                     fill = TRUE
                   ),
-                  style = "margin-top: 0px; "
+                  style = "margin-top: 10px; "
                 ),
                 div(
+                  id = "inline",
                   numericInput(
                     inputId = "n_dec",
-                    label = "N° decimales:", 
+                    label = "N° decimales:  ", 
                     value = 2, 
                     min = 0, 
                     max = 4
                   ),
                   style = "margin-top: 0px; margin-left: 20px;"
+                ),
+                div(
+                  id = "inline",
+                  pickerInput(
+                    inputId = "provincia_carto",
+                    label = "Seleccione provincia:  ", 
+                    choices = provincias_list,
+                    selected = NULL
+                  ),
+                  style = "margin-top: 0px; margin-left: 20px;"
                 )
               ),
+              div(style = "margin-top: 10px"),
               
               # AREAS DE CORTA
               leer_sfUI("cart_area", "Ingrese shapefile de áreas de corta") %>% 
-                add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_Area'"),
+                add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_Area', 'Clase_Uso'"),
               div(style = "margin-top: -10px"),
               # RCA_UI("rca_areas"),
-              div(style = "margin-top: -30px"),
-              hr(),
               
               # RODALES
               leer_sfUI("cart_rodales", "Ingrese shapefile de rodales") %>%
@@ -245,17 +255,16 @@ shinyUI(
               prettyToggle(
                 inputId = "tipo_for",
                 label_on = "Tipo_For (numerico): ej., 11",
-                label_off = "Tipo_For (caracter): ej., 'Esclerófilo'"
+                label_off = "Tipo_For (caracter): ej., 'Esclerófilo'",
+                value = T
               ),
               # RCA_UI("rca_rodales"),
               div(style = "margin-top: -10px"),
-              hr(),
               
               # PREDIOS
               leer_sfUI("cart_predios", "Ingrese shapefile de limites prediales") %>% 
                 add_help_text(title = "Campos minimos requeridos:\n'N_Predio', 'Nom_Predio', 'Rol'"),
               div(style = "margin-top: -10px"),
-              hr(),
               
               # DEM
               fileInput(
@@ -267,6 +276,15 @@ shinyUI(
                 placeholder = "Archivo no seleccionado"
               ) %>% 
                 add_help_text("Por favor utilizar DEM acotado al área de estudio"),
+              div(style = "margin-top: -10px"),
+              
+              # BDD PARCELAS
+              materialSwitch(
+                inputId = "add_parcelas",
+                label = "¿Crear capa de parcelas?",
+                status = "success"
+              ),
+              uiOutput("add_parcelas_ui"),
               div(style = "margin-top: -10px"),
               hr(),
               
@@ -319,6 +337,36 @@ shinyUI(
                 ),
                 downfile_ui("down_carto_ui"),
                 style = "display: flex; align-items: center;"
+              ),
+              hr(),
+              
+              # GET APÉNDICES
+              h4("Apéndices", style = "font-weight: bold;"),
+              materialSwitch(
+                inputId = "add_bd_pcob",
+                label = "¿Desea incluir parcelas de cobertura?",
+                status = "success"
+              ),
+              uiOutput("add_bd_pcob_ui"),
+              div(style = "margin-top: -10px"),
+              virtualSelectInput(
+                inputId = "portada",
+                label = "Seleccionar portada :", 
+                choices = c("default", "KIMAL"),
+                selected = "default",
+                width = "100%",
+                dropboxWrapper = "body"
+              ),
+              div(
+                actionBttn(
+                  inputId = "get_apendices_btn",
+                  label = "Obtener Apéndices", 
+                  style = "unite",
+                  size = "sm",
+                  color = "success"
+                ),
+                downfile_ui("down_apendices"),
+                style = "display: flex; align-items: center;"
               )
             ),
             box(
@@ -327,13 +375,18 @@ shinyUI(
               solidHeader = T,
               status = "success",
               height = "400px",
-              carrousel_info()  
+              info_cut_buffer()  
             )
           )
         ),
         tabItem(
-          tabName = "access"
-          
+          tabName = "anexos",
+          fluidRow(
+            column(
+              width = 6
+              
+            )
+          )
         )
       )# fin tabitems
     ) # fin dashboardbody

@@ -18,9 +18,9 @@ shinyServer(function(input,output,session){
   })
   
   # datos ----
-  comunas <- reactive({
-    read_sf(system.file("Comunas.gdb", package = "dataPAS")) %>% st_transform(crs())
-  })
+  # comunas <- reactive({
+  #   read_sf(system.file("Comunas.gdb", package = "dataPAS")) %>% st_transform(crs())
+  # })
   red_hidro <- reactive({
     read_sf(system.file("Red_hidrografica.gdb", package = "dataPAS")) %>% st_transform(crs())
   })
@@ -29,7 +29,7 @@ shinyServer(function(input,output,session){
   })
   provincia <- reactive({
     req(input$provincia)
-    comunas() %>% filter(PROVINCIA == input$provincia) %>% group_by(PROVINCIA) %>% summarise(geometry = st_union(geometry))
+    read_sf(system.file("Comunas.gdb", package = "dataPAS")) %>% st_transform(crs()) %>% filter(PROVINCIA == input$provincia) %>% group_by(PROVINCIA) %>% summarise(geometry = st_union(geometry))
   })
   
   # Inputs ----
@@ -249,6 +249,13 @@ shinyServer(function(input,output,session){
   crs_carto <- reactive({
     ifelse(input$huso == "18S", 32718, 32719)
   })
+  provincia_carto <- reactive({
+    req(input$provincia_carto)
+    read_sf(system.file("Comunas.gdb", package = "dataPAS")) %>% st_transform(crs()) %>% 
+      filter(PROVINCIA == input$provincia_carto) %>% 
+      group_by(PROVINCIA) %>% 
+      summarise(geometry = st_union(geometry))
+  })
   # AREAS DE CORTA
   areas_def <- leer_sf(id = "cart_area", crs = crs_carto(), fx = function(x){
     x %>%
@@ -327,7 +334,8 @@ shinyServer(function(input,output,session){
         div(
           div(
             id = "flex",
-            div(id = "inline", pickerInput(inputId = "cut_hidro", label = "Corte", choices = c("clip", "buffer", "crop", "crop_by_row"), selected = "clip")),
+            div(id = "inline", pickerInput(inputId = "fuente_hidro", label = "Fuente", choices = c("MOP", "BCN"), selected = "MOP")),
+            div(id = "inline", pickerInput(inputId = "cut_hidro", label = "Corte", choices = c("clip", "buffer", "crop", "crop_by_row"), selected = "clip"), style = "margin-left: 25px;"),
             div(id = "inline", numericInput(inputId = "buffer_hidro", label = "Buffer", value = 0, step = 10, width = "100px"), style = "margin-left: 25px;"),
             div(tags$b("m"), style = "margin-top: 10px;"),
             style = "margin-top: -10px; margin-bottom: 5px"
@@ -348,31 +356,90 @@ shinyServer(function(input,output,session){
     })
   })
   
-  # CURVAS DE NIVEL
-  observeEvent(input$add_CN,{
-    output$add_CN_ui <- renderUI({
-      if(input$add_CN){
+  # DEM
+  DEM <- reactive({
+    req(input$dem$datapath)
+    dem <- read_stars(input$dem$datapath) %>% `st_crs<-`(crs_carto())
+    names(dem) <- "elev"
+    return(dem)
+  })
+  
+  # BD FLORA
+  observeEvent(input$add_parcelas,{
+    output$add_parcelas_ui <- renderUI({
+      if(input$add_parcelas){
         div(
-          id = "flex",
-          div(
-            id = "inline", 
-            pickerInput(inputId = "cut_hidro", label = "Corte", choices = c("clip", "buffer", "crop", "crop_by_row"), selected = "clip")
-          ),
-          div(
-            id = "inline", 
-            numericInput(inputId = "buffer_hidro", label = "Buffer", value = 0, step = 10, width = "50px"),
-            style = "margin-left: 20px;"
-          ),
-          div(tags$b("m"), style = "margin-top: 8px;"),
-          div(
-            id = "inline",
-            numericInputIcon(inputId = "step", label = "Intervalo", value = 10, step = 5, icon = icon("ruler-horizontal"), width = "50px"),
-            style = "margin-left: 20px;"
-          ),
-          style = "margin-top: -8px;"
+          fileInput(
+            inputId = "bd_parcelas",
+            label = "Ingresar BD de parcelas",
+            multiple = F,
+            accept = c(".xlsx"),
+            buttonLabel = "Seleccionar",
+            placeholder = "Archivo no seleccionado"
+          ) %>% 
+            add_help_text(
+              title = "Campos minimos requeridos:\n
+              'Parcela', 'UTM_E', 'UTM_N', 'Especie', 'Copa_NS', 'Copa_EO', 'Habito'"
+            ),
+          div(style = "margin-top: -10px")
         )
       }
     })
+  })
+  
+  bd_parcelas <- reactive({
+    req(input$bd_parcelas$datapath)
+    read_xlsx(input$bd_parcelas$datapath) %>% 
+      rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII")))) %>% 
+      rename_if(names(.) %>% stri_cmp_equiv("cob_bb", strength = 1), ~ "Cob_BB") %>% 
+      rename_if(names(.) %>% stri_detect_regex("p500", case_insensitive = T), ~ "N_ind") %>% 
+      rename_at(vars(contains("UTM")), str_to_upper) %>% 
+      mutate_at(vars(contains("Cob_BB")), ~str_trim(str_to_lower(.)))
+  })
+  
+  observeEvent(bd_parcelas(),{
+    check_bd_flora(bd_parcelas())
+  })
+  
+  # BD PCOB
+  observeEvent(input$add_bd_pcob,{
+    output$add_bd_pcob_ui <- renderUI({
+      if(input$add_bd_pcob){
+        div(
+          fileInput(
+            inputId = "bd_pcob",
+            label = "Ingresar BD  de parcelas de cobertura",
+            multiple = F,
+            accept = c(".xlsx"),
+            buttonLabel = "Seleccionar",
+            placeholder = "Archivo no seleccionado"
+          ) %>% 
+            add_help_text(
+              title = "Campos minimos requeridos:\n
+              'Parcela', 'Especie', 'Copa_NS', 'Copa_EO'"
+            ),
+          div(style = "margin-top: -10px")
+        )
+      }
+    })
+  })
+  
+  bd_pcob <- reactive({
+    req(input$bd_pcob$datapath)
+    read_xlsx(input$bd_pcob$datapath) %>% 
+      clean_names() %>% 
+      rename_all(~ if_else(. == "geometry", ., str_to_sentence(stri_trans_general(.,"Latin-ASCII")))) %>% 
+      rename_if(names(.) %>% stri_cmp_equiv("copa_ns", strength = 1), ~ "Copa_NS") %>% 
+      rename_if(names(.) %>% stri_cmp_equiv("copa_eo", strength = 1), ~ "Copa_EO") %>% 
+      rename_if(names(.) %>% stri_detect_regex("diametro.*1", case_insensitive = T), ~ "Copa_NS") %>% 
+      rename_if(names(.) %>% stri_detect_regex("diametro.*1", case_insensitive = T), ~ "Copa_EO") %>% 
+      rename_at(vars(contains("UTM")), str_to_upper) %>% 
+      mutate_at(vars(starts_with("Copa")), str_replace, "\\,", "\\.") %>% 
+      mutate_at(vars(starts_with("Copa")), as.numeric)
+  })
+  
+  observeEvent(bd_pcob(),{
+    check_bd_pcob(bd_pcob())
   })
   
   # USO ACTUAL
@@ -413,33 +480,52 @@ shinyServer(function(input,output,session){
     }
   })
   
-  # DEM
-  DEM <- reactive({
-    req(input$dem)
-    dem <- read_stars(input$dem) 
-    names(dem) <- "elev"
-    return(dem)
-  })
-  
   # NOMBRE PREDIO
-  iv <- InputValidator$new()
-  iv$add_rule("NOMPREDIO", sv_required())
-  iv$enable()
+  # iv <- InputValidator$new()
+  # iv$add_rule("NOMPREDIO", sv_required())
+  # iv$add_rule("cart_area", sv_required())
+  # iv$add_rule("cart_rodales", sv_required())
+  # iv$add_rule("cart_predios", sv_required())
+  # iv$enable()
   
   # CARTOGRAFÍA DIGITAL
+  shinyjs::disable("get_carto_btn")
+  observe({
+    req(c(areas_def(), rodales_def(), predios_def(), DEM()))
+    shinyjs::enable("get_carto_btn")
+  })
   carto_digital <- eventReactive(input$get_carto_btn,{
-    req(c(area_def(), rodales_def(), predios_def(), input$dem, input$get_carto_btn))
+    req(c(areas_def(), rodales_def(), predios_def(), DEM()))
     get_carto_digital(
-      areas = areas_def(), 
-      rodales = rodales_def(), 
-      predios = predios_def(), 
-      tipo_for = input$tipo_for,
-      DEM = DEM()
+      PAS = 148,
+      areas = areas_def(),
+      rodales = rodales_def(),
+      predios = predios_def(),
+      TipoFor_num = input$tipo_for,
+      dem = DEM(),
+      add_parcelas = input$add_parcelas,
+      bd_parcelas = NULL,
+      from_RCA = F,
+      RCA = NULL,
+      add_uso_actual = input$add_uso_actual,
+      catastro = catastro(),
+      suelos = suelos_uso_act(),
+      add_caminos = input$add_cam,
+      add_caminos_osm = input$add_cam_osm,
+      caminos_arg = list(cut = input$cut_cam, buffer = input$buffer_cam),
+      add_hidro = input$add_hidro,
+      fuente_hidro = input$fuente_hidro,
+      add_hidro_osm = input$add_hidro_osm,
+      hidro_arg = list(cut = input$cut_hidro, buffer = input$buffer_hidro),
+      add_curv_niv = input$add_CN,
+      curv_niv_arg = list(cut = input$cut_curv_niv, buffer = input$buffer_curv_niv),
+      step = input$step,
+      dec_sup = input$n_dec
     )
   })
   
   observeEvent(input$get_carto_btn,{
-    req(c(area_def(), rodales_def(), predios_def(), input$dem, input$get_carto_btn))
+    req(c(areas_def(), rodales_def(), predios_def(), DEM()))
     show_modal_spinner(
       spin = "flower",
       color = "#35978F",
@@ -447,15 +533,55 @@ shinyServer(function(input,output,session){
     )
     req(carto_digital())
     remove_modal_spinner()
-    output$down_carto_ui <- renderUI({
-      downUI("down_carto")
-    })
   })
   
   downfile(
-    id = "down_carto", 
-    x = carto_digital(), 
-    name_save = c("Area", "Rodales", "Suelos", "Rangos_pend", "Caminos", "Hidrografia","Curvas_niv", "Limite_Predial", "Uso_actual")
+    id = "down_carto",
+    x = carto_digital(),
+    name_save = c(
+      "Area",
+      "Rodales",
+      "Limite_Predial",
+      "Suelos",
+      "Rangos_pend",
+      "Parcela",
+      "Uso_actual",
+      "Caminos",
+      "Caminos_osm",
+      "Hidrografia",
+      "Hidrografia_osm",
+      "Curvas_niv"
+    ) %>%
+      str_c(.,input$NOMPREDIO, sep = "_") %>%
+      subset(c(rep(T, 5), input$add_parcelas, input$add_uso_actual, input$add_cam, input$add_cam_osm, input$add_hidro, input$add_hidro_osm, input$add_curv_niv))
+  )
+  
+  apendices <- eventReactive(input$get_apendices_btn,{
+    req(bd_parcelas(), carto_digital())
+    get_apendices(
+      
+    )
+  })
+  
+  observeEvent(input$get_apendices_btn,{
+    req(bd_parcelas(), carto_digital())
+    show_modal_spinner(
+      spin = "flower",
+      color = "#35978F",
+      text = div(br(), p("Generando cartografía digital.", br(), " Por favor espere, esto puede tardar unos minutos"))
+    )
+    req(apendices())
+    remove_modal_spinner()
+  })
+  
+  downfile(
+    id = "down_apendices",
+    x = apendices(),
+    name_save = c(
+      "APÉNDICE 2. Densiadad de especies",
+      "APÉNDICE 3. Coordenadas ubicación de parcelas",
+      "APENDICE 5. Tablas formulario CONAF"
+    )
   )
   
   # ANALISIS METODOLOGICO ----

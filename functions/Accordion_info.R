@@ -76,12 +76,19 @@ info_dashboard <- function(){
           ),
           tags$li(
             "Cartografía"
-          ),
-          tags$li(
-            "Crear puntos de acceso"
           )
         )
       )
     ) 
 }
 
+info_cut_buffer <- function(){
+  bs_carousel(id = "hidro_example", use_indicators = T, use_controls = T) %>%
+    bs_set_data(interval = FALSE) %>%
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/clip.png?raw=true")) %>%
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/buffer_2000.png?raw=true")) %>%
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/crop.png?raw=true")) %>%
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/crop_2000.png?raw=true")) %>%  
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/crop_by_row.png?raw=true")) %>%  
+    bs_append(content = bs_carousel_image(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/crop_by_row_2000.png?raw=true"))
+}

@@ -45,7 +45,7 @@ downfile <- function(id, x, name_save){
       },
       content = function(file){
         temp_dir <- tempdir()
-        setwd(tempdir())
+        setwd(temp_dir)
         pwalk(
           if(length(filetype()) == 1) list(list(x), list(filetype()), list(name_save)) else list(x, filetype, name_save),
           .f = function(x, y, z) {

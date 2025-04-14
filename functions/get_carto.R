@@ -1,3 +1,64 @@
+# Funciones de apoyo
+group_by_distance <- function(x, distance){
+  dist_matrix = st_distance(x, by_element = FALSE)
+  class(dist_matrix) = NULL
+  connected = dist_matrix <= distance
+  g = igraph::graph_from_adjacency_matrix(connected)
+  return(components(g)$membership)
+}
+my_union <- function(a,b) {
+  st_agr(a) = "constant"
+  st_agr(b) = "constant"
+  a %>% st_difference(st_union(b)) %>% bind_rows(st_intersection(a,b))
+}
+extract2.0 <- function (x, v, fun, opt = "intersect", buffer = 7, progress = TRUE, ...){
+  stopifnot(opt %in% c("intersect", "bbox", "buffer"))
+  
+  v = st_geometry(v)
+  # x = check_2d_3d(x)
+  if (progress) 
+    pb = utils::txtProgressBar(min = 0, max = length(v), 
+                               initial = 0, style = 3)
+  result = list()
+  for (i in 1:length(v)) {
+    if (length(dim(x)) == 2) {
+      if (opt == "intersect") {
+        result[[i]] = fun(x[v[i]][[1]], ...)
+      }
+      if (opt == "bbox") {
+        result[[i]] = fun(x[st_bbox(v[i])][[1]], ...)
+      }
+      if (opt == "buffer") {
+        result[[i]] = fun(x[st_buffer(v[i], buffer)][[1]], ...)
+      }
+    }
+    if (length(dim(x)) == 3) {
+      if (opt == "intersect") {
+        result[[i]] = apply(x[v[i]][[1]], 3, fun, ...)
+      }
+      if (opt == "bbox") {
+        result[[i]] = apply(x[st_bbox(v[i])][[1]], 3, fun, ...)
+      }
+      if (opt == "buffer") {
+        result[[i]] = apply(x[st_buffer(v[i], buffer)][[1]], 3, fun, ...)
+      }
+    }
+    if (progress) 
+      utils::setTxtProgressBar(pb, i)
+  }
+  if (progress) 
+    cat("\n")
+  if (length(dim(x)) == 2) {
+    result = do.call(c, result)
+  }
+  if (length(dim(x)) == 3) {
+    result = do.call(rbind, result)
+  }
+  result[is.nan(result)] = NA
+  return(result)
+}
+
+# Funciones para resultados finales 
 get_rod_area <- function(
     LB, 
     obras, 
@@ -115,7 +176,7 @@ get_rod_area <- function(
       Tipo_Bos = "BN",
       N_a = str_c(N_Predio, str_pad(N_r, str_length(max(N_r)), pad = "0"), sep = ".")
     ) %>% 
-    select(!!!group_list, Tipo_For, Tipo_Bos, N_Rodal, N_a, N_Area, N_Pred_ori, Clase_uso, Sup_ha, Sup_m2) %>% 
+    select(!!!group_list, Tipo_For, Tipo_Bos, N_Rodal, N_a, N_Area, N_Pred_ori, Clase_uso, Sup_ha, Sup_m2) 
   
   Predios <- predios %>%
     filter(N_Predio %in% unique(BN_areas$N_Pred_ori)) %>% 
@@ -136,7 +197,7 @@ get_rod_area <- function(
 }
 
 cart_rodales <- function(rodales, PAS, TipoFor_num = NULL, dec_sup = 2){
-  stopifnot(c("Nom_Predio", "N_Area") %in% names(areas) %>% all())
+  stopifnot(c("Nom_Predio", "Tipo_For") %in% names(rodales) %>% all())
   stopifnot(PAS %in% c(148, 151))
   
   if(is.null(TipoFor_num)){
@@ -220,23 +281,26 @@ cart_suelos <- function(areas, dec_sup = 2, from_RCA = F, RCA = NULL){
     select(Nom_Predio, Clase_Uso, Sup_ha, Fuente)
 }
 
-cart_rang_pend <- function(areas, dem, PAS, dec_sup = 2){
+cart_rang_pend <- function(areas, dem, PAS, dec_sup = 2, opt = "intersect", buffer = 7){
   stopifnot(c("Nom_Predio") %in% names(areas) %>% all())
   stopifnot(PAS %in% c(148, 151))
-  
-  slope_per <- dem %>% 
-    st_crop(areas %>% st_buffer(50)) %>% st_as_stars() %>% 
-    starsExtra::slope() %>% 
-    {\(x) tan(x*pi/180)*100}()
-  
-  areas %>% 
+
+  slope_per <- dem %>%
+    `st_crs<-`(st_crs(areas)) %>%
+    st_crop(areas %>% st_buffer(50)) %>%
+    st_as_stars() %>%
+    starsExtra::slope() %>%
+    {\(x) tan(x*pi/180)*100}() %>%
+    extract2.0(v = areas, mean, na.rm = T, opt = opt, buffer = buffer) %>% round_half_up(1)
+
+  areas %>%
     mutate(
-      Pend_media = 1:nrow(areas) %>% map_dbl(~ slope_per[st_bbox(areas[.x,]), , , 1] %>% .$slope %>% mean(na.rm = T) %>% round_half_up(1)),
+      Pend_media = slope_per,
       Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup),
       Fuente = "Elaboración propia"
-    ) %>% 
+    ) %>%
     {if(PAS == 148){
-      .[] %>% 
+      .[] %>%
         mutate(
           Ran_Pend = case_when(
             Pend_media >= 0 & Pend_media < 30 ~ "0% - 30%",
@@ -246,7 +310,7 @@ cart_rang_pend <- function(areas, dem, PAS, dec_sup = 2){
           )
         )
     } else if(PAS == 151){
-      .[] %>% 
+      .[] %>%
         mutate(
           Ran_pend = case_when(
             Pend_media >= 0 & Pend_media < 10 ~ "0% - 10%",
@@ -256,7 +320,7 @@ cart_rang_pend <- function(areas, dem, PAS, dec_sup = 2){
             Pend_media >= 60  ~ "60% y más"
           )
         )
-    }} %>% 
+    }} %>%
     select(Nom_Predio, Ran_Pend, Sup_ha)
 }
 
@@ -268,6 +332,79 @@ cart_predios <- function(predios, dec_sup = 2){
       Fuente = "Elaboración propia"
     ) %>%
     select(Nom_Predio, Rol, Sup_ha)
+}
+
+cart_parcelas <- function(bd_parcelas, rodales){
+  stopifnot(c("Parcela", "UTM_E", "UTM_E") %in% names(bd_parcelas) %>% all())
+  stopifnot(c("Nom_Predio", "N_Rodal") %in% names(rodales) %>% all())
+  if (!bd_parcelas %>% count(Parcela, UTM_E, UTM_N) %>% count(Parcela, sort = T) %>% pull(n) %>% all(.==1)) {
+    warning(
+      str_c(
+        "Las siguientes parcelas presentan mas de una coordenada geográfica\n", 
+        str_c(bd_parcelas %>% count(Parcela, UTM_E, UTM_N) %>% count(Parcela) %>% filter(Parcela > 1) %>% pull(Parcela) %>% shQuote(), collapse = ", ")
+      )
+    )
+  }
+  
+  bd_parcelas %>% 
+    filter(
+      Habito %>% stri_trans_general("Latin-ASCII") %>% stri_detect_regex("arbol", case_insensitive = T),
+      !Cob_BB %>% str_to_lower() %in% c(NA_character_, "fp")
+    ) %>% 
+    st_as_sf(coords = c("UTM_E","UTM_N"), crs = st_crs(rodales), remove = F) %>% 
+    st_intersection(st_union(rodales)) %>%
+    st_join(rodales %>% select(Nom_Predio, N_Rodal)) %>% 
+    mutate_at("N_Rodal", as.integer) %>% 
+    st_drop_geometry() %>% 
+    mutate_at("N_ind", as.integer) %>% 
+    mutate(Nha = N_ind * 20) %>% 
+    arrange(N_Rodal) %>%
+    group_by(Parcela, UTM_E, UTM_N) %>%
+    arrange(N_Rodal) %>% 
+    mutate(N = cur_group_id()) %>% 
+    group_by(N_Rodal, N) %>% 
+    mutate(N_Parc = cur_group_id()) %>% 
+    ungroup() %>% 
+    count(Nom_Predio, N_Rodal, N_Parc, UTM_E, UTM_N) %>% select(-n) %>% 
+    mutate(Fuente = "Elaboracion propia") %>% 
+    rename(Coord_X = UTM_E, Coord_Y = UTM_N) %>% 
+    mutate_at(vars(starts_with("Coord")), round_half_up) %>% 
+    arrange(N_Parc) %>% 
+    select(Nom_Predio, N_Rodal, N_Parc, Coord_X, Coord_Y, Fuente)
+}
+
+cart_uso_actual <- function(catastro, predios, suelos, dec_sup = 2){
+  stopifnot(c("USO", "SUBUSO", "ESTRUCTURA") %in% names(catastro) %>% all())
+  stopifnot(c("TEXTCAUS") %in% names(suelos))
+  stopifnot(c("Nom_Predio") %in% names(predios))
+  
+  catastro %>%
+    st_intersection(predios %>% select(Nom_Predio)) %>%
+    st_collection_extract("POLYGON") %>%
+    st_make_valid() %>%
+    st_intersection(suelos %>% select(TEXTCAUS)) %>%
+    st_collection_extract("POLYGON") %>%
+    select(USO, SUBUSO, ESTRUCTURA, TEXTCAUS, Nom_Predio) %>%
+    st_make_valid() %>%
+    st_collection_extract("POLYGON") %>% 
+    mutate(
+      Uso_Actual = case_when(
+        SUBUSO == "Bosque Nativo" ~ paste(SUBUSO, ESTRUCTURA),
+        SUBUSO == "Bosque Mixto" ~ SUBUSO,
+        SUBUSO == "Plantación" ~ paste(SUBUSO, "(Otros usos)"),
+        USO == "Terrenos Agrícolas" & TEXTCAUS %in% c("I", "II", "III", "IV") ~ "Uso agrícola y/o Ganadero (I-IV)",
+        USO == "Terrenos Agrícolas" & TEXTCAUS %in% c("V", "VI", "VII", "VIII") ~ "Uso agrícola y/o Ganadero (V-VIII)",
+        (USO == "Terrenos Agrícolas" & (is.na(TEXTCAUS) | TEXTCAUS == "N.C.")) ~ "Uso agrícola y/o Ganadero (N.C.)",
+        USO == "Áreas Desprovistas de Vegetación" ~ "Áreas sin vegetación",
+        .default = paste(USO, "(Otros usos)")
+      ),
+      Fuente = "Elaboracion propia (A partir de las capas del Catastro de CONAF y suelos de CIREN)" 
+    ) %>% 
+    group_by(Nom_Predio, Uso_Actual, Fuente) %>% 
+    tally() %>% ungroup() %>% 
+    st_collection_extract("POLYGON") %>% 
+    mutate(Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup)) %>% 
+    select(Nom_Predio, Uso_Actual, Sup_ha, Fuente)
 }
 
 cart_hidro <- function(predios, fuente, cut = "clip", buffer = 0){
@@ -324,29 +461,34 @@ cart_hidro <- function(predios, fuente, cut = "clip", buffer = 0){
         )
     }} %>% 
     st_collection_extract("LINESTRING") %>% 
-    select(strahler_n, contains(fuente)) %>% 
-    rename_at(vars(contains(fuente)), ~str_extract(., ".*(?=_)")) %>%
-    rename(Etiqueta = nombre) %>% 
-    mutate_at("tipo", stri_trans_general, "Latin-ASCII") %>% 
-    mutate(
-      Tip_Dren = case_when(
-        stri_detect_regex(tipo, "rio", case_insensitive = T) ~ 1,
-        stri_detect_regex(tipo, "estero", case_insensitive = T) ~ 2,
-        stri_detect_regex(tipo, "arroyo", case_insensitive = T) ~ 3,
-        stri_detect_regex(tipo, "quebrada", case_insensitive = T) ~ 4,
-        .default = 5
-      ) %>% as.integer(),
-      Tipo_Perma = case_when(
-        stri_detect_regex(tipo, "rio", case_insensitive = T) ~ 1,
-        strahler_n > 3 ~ 1,
-        .default = 2
-      ) %>% as.integer(),
-      Fuente = str_c("Geoportal (", fuente, ")")
-    ) %>% 
-    my_union(predios %>% select(Nom_Predio)) %>% 
-    st_collection_extract("LINESTRING") %>%
-    mutate_at("Nom_Predio", replace_na, "S/I") %>% 
-    select(Nom_Predio, Tip_Dren, Tipo_Perma, Fuente, Etiqueta)
+    {if(nrow(.) == 0){
+      NULL
+    } else {
+      .[] %>% 
+        select(strahler_n, contains(fuente)) %>% 
+        rename_at(vars(contains(fuente)), ~str_extract(., ".*(?=_)")) %>%
+        rename(Etiqueta = nombre) %>% 
+        mutate_at("tipo", stri_trans_general, "Latin-ASCII") %>% 
+        mutate(
+          Tip_Dren = case_when(
+            stri_detect_regex(tipo, "rio", case_insensitive = T) ~ 1,
+            stri_detect_regex(tipo, "estero", case_insensitive = T) ~ 2,
+            stri_detect_regex(tipo, "arroyo", case_insensitive = T) ~ 3,
+            stri_detect_regex(tipo, "quebrada", case_insensitive = T) ~ 4,
+            .default = 5
+          ) %>% as.integer(),
+          Tipo_Perma = case_when(
+            stri_detect_regex(tipo, "rio", case_insensitive = T) ~ 1,
+            strahler_n > 3 ~ 1,
+            .default = 2
+          ) %>% as.integer(),
+          Fuente = str_c("Geoportal (", fuente, ")")
+        ) %>% 
+        my_union(predios %>% select(Nom_Predio)) %>% 
+        st_collection_extract("LINESTRING") %>%
+        mutate_at("Nom_Predio", replace_na, "S/I") %>% 
+        select(Nom_Predio, Tip_Dren, Tipo_Perma, Fuente, Etiqueta)
+    }}
 }
 
 cart_hidro_osm <- function(predios, cut = "clip", buffer = 0){
@@ -391,29 +533,34 @@ cart_hidro_osm <- function(predios, cut = "clip", buffer = 0){
         )
     }} %>% 
     st_collection_extract("LINESTRING") %>% 
-    mutate(
-      Tip_Dren = case_when(
-        name %>% stri_detect_regex("rio", case_insensitive = T) ~ 1,
-        name %>% stri_detect_regex("estero", case_insensitive = T) ~ 2,
-        name %>% stri_detect_regex("quebrada", case_insensitive = T) ~ 4,
-        name %>% stri_detect_regex("canal", case_insensitive = T) ~ 5,
-        waterway == "river" ~ 1,
-        waterway == "stream" ~ 3,
-        waterway == "river" ~ 1,
-        .default = 5
-      ) %>% as.integer(),
-      Tipo_Perma = case_when(
-        Tip_Dren == 1 ~ 1,
-        intermittent == "no" ~ 1,
-        .default = 2
-      ) %>% as.integer(),
-      Fuente = "Elaboración propia (OpenStreetMap)"
-    ) %>% 
-    my_union(predios %>% select(Nom_Predio)) %>% 
-    st_collection_extract("LINESTRING") %>%
-    mutate_at("Nom_Predio", replace_na, "S/I") %>% 
-    rename(Etiqueta = name) %>% 
-    select(Nom_Predio, Tip_Dren, Tipo_Perma, Fuente, Etiqueta, waterway) %>% 
+    {if(nrow(.) == 0){
+      NULL
+    } else {
+      .[] %>% 
+        mutate(
+          Tip_Dren = case_when(
+            name %>% stri_detect_regex("rio", case_insensitive = T) ~ 1,
+            name %>% stri_detect_regex("estero", case_insensitive = T) ~ 2,
+            name %>% stri_detect_regex("quebrada", case_insensitive = T) ~ 4,
+            name %>% stri_detect_regex("canal", case_insensitive = T) ~ 5,
+            waterway == "river" ~ 1,
+            waterway == "stream" ~ 3,
+            waterway == "river" ~ 1,
+            .default = 5
+          ) %>% as.integer(),
+          Tipo_Perma = case_when(
+            Tip_Dren == 1 ~ 1,
+            intermittent == "no" ~ 1,
+            .default = 2
+          ) %>% as.integer(),
+          Fuente = "Elaboración propia (OpenStreetMap)"
+        ) %>% 
+        my_union(predios %>% select(Nom_Predio)) %>% 
+        st_collection_extract("LINESTRING") %>%
+        mutate_at("Nom_Predio", replace_na, "S/I") %>% 
+        rename(Etiqueta = name) %>% 
+        select(Nom_Predio, Tip_Dren, Tipo_Perma, Fuente, Etiqueta, waterway)
+    }} %>% 
     {if(!is.null(hidro_osm$osm_multilines)){
       .[] %>% 
         bind_rows(
@@ -506,16 +653,21 @@ cart_caminos <- function(predios, cut = "clip", buffer = 0){
         )
     }} %>% 
     st_collection_extract("LINESTRING") %>% 
-    mutate(
-      Tipo_Cam = if_else(str_detect(CLASIFICACION,'Internacional|Nacional|Regional Principal'), 1,
-                         if_else(str_detect(CLASIFICACION,'Regional Provincial|Regional Comunal'), 2,
-                                 if_else(str_detect(CLASIFICACION,'Acceso'), 3, 4))) %>% as.integer(),
-      Fuente = "Dirección de Vialidad, Ministerio de Obras Públicas"
-    ) %>% 
-    my_union(predios %>% select(Nom_Predio)) %>% 
-    st_collection_extract("LINESTRING") %>%
-    mutate_at("Nom_Predio", replace_na, "S/I") %>% 
-    select(Nom_Predio, Tipo_Cam, Fuente)
+    {if(nrow(.) == 0){
+      NULL
+    } else {
+      .[] %>% 
+        mutate(
+          Tipo_Cam = if_else(str_detect(CLASIFICACION,'Internacional|Nacional|Regional Principal'), 1,
+                             if_else(str_detect(CLASIFICACION,'Regional Provincial|Regional Comunal'), 2,
+                                     if_else(str_detect(CLASIFICACION,'Acceso'), 3, 4))) %>% as.integer(),
+          Fuente = "Dirección de Vialidad, Ministerio de Obras Públicas"
+        ) %>% 
+        my_union(predios %>% select(Nom_Predio)) %>% 
+        st_collection_extract("LINESTRING") %>%
+        mutate_at("Nom_Predio", replace_na, "S/I") %>% 
+        select(Nom_Predio, Tipo_Cam, Fuente)
+    }} 
 }
 
 cart_caminos_osm <- function(predios, cut = "clip", buffer = 0){
@@ -563,27 +715,32 @@ cart_caminos_osm <- function(predios, cut = "clip", buffer = 0){
         )
     }} %>% 
     st_collection_extract("LINESTRING") %>% 
-    mutate(
-      Tipo_Cam = case_when(
-        highway %in% c("primary", "motorway") ~ 1,
-        highway %in% c("secondary", "tertiary", "residential") ~ 2,
-        highway %in% c("unclassified", "service") ~ 3,
-        .default = 4
-      ),
-      Fuente = "Elaboración propia (OpenStreetMap)"
-    ) %>% 
-    my_union(predios %>% select(Nom_Predio)) %>% 
-    st_collection_extract("LINESTRING") %>%
-    mutate_at("Nom_Predio", replace_na, "S/I") %>% 
-    rename(Etiqueta = name) %>% 
-    select(Nom_Predio, Tipo_Cam, Fuente, Etiqueta, highway)
+    {if(nrow(.) == 0){
+      NULL
+    } else {
+      .[] %>% 
+        mutate(
+          Tipo_Cam = case_when(
+            highway %in% c("primary", "motorway") ~ 1,
+            highway %in% c("secondary", "tertiary", "residential") ~ 2,
+            highway %in% c("unclassified", "service") ~ 3,
+            .default = 4
+          ),
+          Fuente = "Elaboración propia (OpenStreetMap)"
+        ) %>% 
+        my_union(predios %>% select(Nom_Predio)) %>% 
+        st_collection_extract("LINESTRING") %>%
+        mutate_at("Nom_Predio", replace_na, "S/I") %>% 
+        rename(Etiqueta = name) %>% 
+        select(Nom_Predio, Tipo_Cam, Fuente, Etiqueta, highway)
+    }} 
 }
 
 cart_curv_niv <- function(predios, dem, cut = "clip", buffer = 0, step = 10){
   stopifnot(c("Nom_Predio") %in% names(predios) %>% all())
   stopifnot(cut %in% c("clip", "buffer", "crop", "crop_by_row"))
   stopifnot("buffer must be a number" = is.numeric(buffer))
-  stopifnot("step must be a number greater than or equal to 10" = is.numeric(step) & (step > 10))
+  stopifnot("step must be a number greater than or equal to 10" = is.numeric(step) & (step >= 10))
   if(cut == "clip" & (buffer > 0)){
     buffer <- 0
     warning("No buffer has been applied. cut is 'clip'. To apply the buffer you can select 'buffer', 'crop' or 'crop_by_row' in cut parameter")
@@ -598,9 +755,8 @@ cart_curv_niv <- function(predios, dem, cut = "clip", buffer = 0, step = 10){
   }
   
   dem_predio <- dem %>% 
-    .[st_bbox(predios %>% 
-                # st_transform(st_crs(dem)) %>% 
-                st_buffer(buffer)) %>% st_as_sfc()]  %>% 
+    `st_crs<-`(st_crs(predios)) %>% 
+    .[st_bbox(predios %>% st_buffer(buffer)) %>% st_as_sfc()]  %>% 
     st_as_stars(crs = st_crs(predios)) %>% 
     st_redim() %>% 
     `names<-`("Cot_Curva")
@@ -632,122 +788,115 @@ cart_curv_niv <- function(predios, dem, cut = "clip", buffer = 0, step = 10){
             st_union()
         )
     }} %>% 
-    mutate(Fuente = "Elaboracion propia (DEM Alos Palsar 12,5 x 12,5m")
+    mutate(Fuente = "Elaboracion propia (DEM Alos Palsar 12,5 x 12,5m)") %>% 
     st_collection_extract("LINESTRING") %>% 
     my_union(predios %>% select(Nom_Predio)) %>%
     st_collection_extract("LINESTRING") %>% 
+    mutate_at("Nom_Predio", replace_na, "S/I") %>%     
     select(Nom_Predio, Cot_Curva, Fuente)
 }
 
-cart_uso_actual <- function(catastro, predios, suelos, dec_sup = 2){
-  stopifnot(c("USO", "SUBUSO", "ESTRUCTURA") %in% names(catastro) %>% all())
-  stopifnot(c("TEXTCAUS") %in% names(suelos))
-  stopifnot(c("Nom_Predio") %in% names(predios))
-  
-  catastro %>%
-    st_intersection(predios %>% select(Nom_Predio)) %>%
-    st_collection_extract("POLYGON") %>%
-    st_make_valid() %>%
-    st_intersection(suelos %>% select(TEXTCAUS)) %>%
-    st_collection_extract("POLYGON") %>%
-    select(USO, SUBUSO, ESTRUCTURA, TEXTCAUS, Nom_Predio) %>%
-    st_make_valid() %>%
-    st_collection_extract("POLYGON") %>% 
-    mutate(
-      Uso_Actual = case_when(
-        SUBUSO == "Bosque Nativo" ~ paste(SUBUSO, ESTRUCTURA),
-        SUBUSO == "Bosque Mixto" ~ SUBUSO,
-        SUBUSO == "Plantación" ~ paste(SUBUSO, "(Otros usos)"),
-        USO == "Terrenos Agrícolas" & TEXTCAUS %in% c("I", "II", "III", "IV") ~ "Uso agrícola y/o Ganadero (I-IV)",
-        USO == "Terrenos Agrícolas" & TEXTCAUS %in% c("V", "VI", "VII", "VIII") ~ "Uso agrícola y/o Ganadero (V-VIII)",
-        (USO == "Terrenos Agrícolas" & (is.na(TEXTCAUS) | TEXTCAUS == "N.C.")) ~ "Uso agrícola y/o Ganadero (N.C.)",
-        USO == "Áreas Desprovistas de Vegetación" ~ "Áreas sin vegetación",
-        .default = paste(USO, "(Otros usos)")
-      ),
-      Fuente = "Elaboracion propia (A partir de las capas del Catastro de CONAF y suelos de CIREN)" 
-    ) %>% 
-    group_by(Nom_Predio, Uso_Actual, Fuente) %>% 
-    tally() %>% ungroup() %>% 
-    st_collection_extract("POLYGON") %>% 
-    mutate(Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup)) %>% 
-    select(Nom_Predio, Uso_Actual, Sup_ha, Fuente)
-}
-
 get_carto_digital <- function(
-    PAS,
+    PAS = 148,
     areas,
     rodales,
-    predios,
     TipoFor_num,
-    from_RCA,
-    RCA,
-    OSM_hidro = F,
-    OSM_vial = F,
-    cut,
-    buffer,
-    step,
+    predios,
+    dem,
+    add_parcelas = F,
+    bd_parcelas = bd_parcelas(),
+    from_RCA = F,
+    RCA = NULL,
+    add_uso_actual = F,
+    catastro = NULL, 
+    suelos = NULL,
+    add_caminos = F,
+    add_caminos_osm = F,
+    caminos_arg = list(cut = "clip", buffer = 0),
+    add_hidro = F,
+    fuente_hidro = NULL,
+    add_hidro_osm = F,
+    hidro_arg = list(cut = "clip", buffer = 0),
+    add_curv_niv = F,
+    curv_niv_arg = list(cut = "clip", buffer = 0),
+    step = 10,
     dec_sup = 2
   ){
 
-  carto_rodales <- cart_rodales(rodales, TipoFor_num, dec_sup)
+  carto_rodales <- cart_rodales(rodales, PAS, TipoFor_num, dec_sup)
 
-  carto_area <- cart_area(areas, dec_sup)
+  carto_area <- cart_area(areas, PAS, dec_sup, from_RCA, RCA)
 
-  carto_suelos <- cart_suelos(areas, dec_sup)
+  carto_suelos <- cart_suelos(areas, dec_sup, from_RCA, RCA)
 
+  carto_ran_pend <- cart_rang_pend(areas, dem, PAS, dec_sup, opt = "intersect", buffer = 7)
+  
   carto_predios <- cart_predios(predios, dec_sup)
-
-  carto_hidro <- cart_hidro(red_hidro, predios)
-
-  carto_caminos <- cart_caminos(red_hidro, predios)
+  
+  if (add_parcelas) {
+    stopifnot(!is.null(bd_parcelas))
+    carto_parcelas <- cart_parcelas(bd_parcelas, carto_rodales)
+  }
+  if (add_uso_actual) {
+    stopifnot(!is.null(catastro, suelos) %>% all())
+    carto_uso_actual <- cart_uso_actual(catastro, predios, suelos, dec_sup)
+  }
+  if (add_caminos) {
+    stopifnot(!is.null(caminos_arg) & is.list(caminos_arg))
+    stopifnot(c("cut", "buffer") %in% names(caminos_arg) %>% all())
+    carto_caminos <- cart_caminos(predios, caminos_arg$cut, caminos_arg$buffer)
+  }
+  if (add_caminos_osm) {
+    stopifnot(!is.null(caminos_arg) & is.list(caminos_arg))
+    stopifnot(c("cut", "buffer") %in% names(caminos_arg) %>% all())
+    carto_caminos_osm <- cart_caminos_osm(predios, caminos_arg$cut, caminos_arg$buffer)
+  }
+  if (add_hidro) {
+    stopifnot(!is.null(hidro_arg) & is.list(hidro_arg))
+    stopifnot(c("cut", "buffer") %in% names(hidro_arg) %>% all())
+    carto_hidro <- cart_hidro(predios, fuente_hidro, hidro_arg$cut, hidro_arg$buffer)
+  }
+  if (add_hidro_osm) {
+    stopifnot(!is.null(hidro_arg) & is.list(hidro_arg))
+    stopifnot(c("cut", "buffer") %in% names(hidro_arg) %>% all())
+    carto_hidro_osm <- cart_hidro_osm(predios, hidro_arg$cut, hidro_arg$buffer)
+  }
+  if (add_curv_niv) {
+    stopifnot(!is.null(curv_niv_arg) & is.list(curv_niv_arg))
+    stopifnot(c("cut", "buffer") %in% names(curv_niv_arg) %>% all())
+    carto_curv_niv <- cart_curv_niv(predios, dem, curv_niv_arg$cut, curv_niv_arg$buffer, step)
+  }
 
   return(
     list(
-      
-    )
+      Areas = carto_area,
+      Rodales = carto_rodales,
+      Predios = carto_predios,
+      Suelos = carto_suelos,
+      Ran_pend = carto_ran_pend,
+      Parcelas = if(add_parcelas) carto_parcelas,
+      Uso_actual = if(add_uso_actual) carto_uso_actual,
+      Caminos = if(add_caminos) carto_caminos,
+      Caminos_osm = if(add_caminos_osm) carto_caminos_osm,
+      Hidrografia = if(add_hidro) carto_hidro,
+      Hidrografia_osm = if(add_hidro_osm) carto_hidro_osm,
+      Curvas_nivel = if(add_curv_niv) carto_curv_niv
+    ) %>% 
+      subset(c(rep(T, 5), add_parcelas, add_uso_actual, add_caminos, add_caminos_osm, add_hidro, add_hidro_osm, add_curv_niv))
   )
 }
 
-# library(purrr)
-# sapply(caminos.osm$name, function(nombre) any(str_detect(red_vial$NOMBRE_CAMINO,nombre))) %>% unname()
-# sapply(caminos.osm$official_name, function(nombre) any(red_vial$NOMBRE_CAMINO == nombre)) %>% unname()
-#
-# caminos.osm %>%
-#   mutate(incluido = map(name, ~ .x %in% red_vial$NOMBRE_CAMINO)) %>%
-#   .$incluido %>% unlist()
-#
-# cart_pts_ref <- function(predios){
-#   pts_ref <- tibble(
-#     N_Predio = as.numeric(),
-#     Nom_Predio = as.character(),
-#     Nom_pto = as.character(),
-#     Coord_X = as.numeric(),
-#     Coord_Y = as.numeric()
-#   )
-#   for (p in 1:nrow(predios)) {
-#     name <- predios$Nom_Predio[p] %>% as.character()
-#     cat("Predio: ", name)
-#     pto <- mapview(
-#       predios[p,],
-#       map.types = c("Esri.WorldImagery","OpenStreetMap")
-#     ) %>%
-#       editMap("predio")
-#     if (is.null(pto)) return(pts_ref)
-#     df <- pto$finished %>%
-#       st_transform(st_crs(predios)) %>%
-#       mutate(
-#         N_Predio = predios$N_Predio[p],
-#         Nom_Predio = name,
-#         Nom_pto = paste("Acceso al predio", N_Predio),
-#         Coord_X=st_coordinates(geometry)[,1],
-#         Coord_Y=st_coordinates(geometry)[,2]
-#       ) %>%
-#       dplyr::select(N_Predio, Nom_Predio, Nom_pto, Coord_X, Coord_Y)
-#     rm(pto)
-#     pts_ref <- rbind(pts_ref, df)
-#   }
-#   return(pts_ref)
-# }
-# asd <- cart_pts_ref(predios)
-#
-# predios[201:460,] %>% split(.$N_Predio) %>% map(class)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
