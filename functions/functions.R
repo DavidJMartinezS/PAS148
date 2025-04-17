@@ -12,7 +12,7 @@ shinyalerta <- function(names_act, names_req){
     title = "Ups!", 
     html = TRUE,
     text = tags$p(
-      "Shapefile sin los campos requeridos ", br(), br(),
+      "Shapefile sin los campos requeridos", br(), br(),
       tags$b("Requeridos: "), str_c(names_req %>% shQuote(), collapse = ", "), br(), br(),
       tags$b("Faltan: "), str_c(setdiff(names_req, names_act) %>% shQuote(), collapse = ", ")
     ),
@@ -37,7 +37,7 @@ wb_portada_148_kimal <- function(wb, apendice, provincia) {
       )
     )
   )
-    
+  
   wb <- wb %>% wb_add_worksheet("Portada", grid_lines = F) %>% 
     wb_page_setup(paper_size = 1) %>% 
     # EIA

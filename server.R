@@ -537,7 +537,7 @@ shinyServer(function(input,output,session){
   
   downfile(
     id = "down_carto",
-    x = carto_digital(),
+    x = carto_digital()[-c(which(names(carto_digital()) %in% c("tabla_predios","tabla_areas")))],
     name_save = c(
       "Area",
       "Rodales",

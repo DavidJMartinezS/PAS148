@@ -348,14 +348,18 @@ shinyUI(
                 status = "success"
               ),
               uiOutput("add_bd_pcob_ui"),
-              div(style = "margin-top: -10px"),
-              virtualSelectInput(
-                inputId = "portada",
-                label = "Seleccionar portada :", 
-                choices = c("default", "KIMAL"),
-                selected = "default",
-                width = "100%",
-                dropboxWrapper = "body"
+              div(style = "margin-top: -5x"),
+              div(
+                id = "inline",
+                virtualSelectInput(
+                  inputId = "portada",
+                  label = "Seleccionar portada :", 
+                  choices = c("default", "KIMAL"),
+                  selected = "default",
+                  width = "200px",
+                  dropboxWrapper = "body"
+                ),
+                style = "margin-bottom: 10px"
               ),
               div(
                 actionBttn(
