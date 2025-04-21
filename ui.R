@@ -33,10 +33,7 @@ shinyUI(
       sidebarMenu(
         menuItem("Importante", tabName = "importante", icon = icon("circle-info")),
         menuItem("Ayuda cartográfica", tabName = "ayuda", icon = icon("circle-check")),
-        menuItem("Insumos Cartográficos", id = "info", icon = icon("layer-group"),
-          menuSubItem("Cartografía base", tabName = "carto", icon = icon("water")),
-          menuSubItem("Anexos", tabName = "access", icon = icon("route"))
-        )
+        menuItem("Cartografía y Anexos", tabName = "carto", icon = icon("layer-group"))
       )
     ),
     dashboardBody(
@@ -44,7 +41,6 @@ shinyUI(
       use_bs_popover(),
       shinyEffects::setShadow(class = "dropdown-menu"),
       shinyEffects::setShadow(class = "box"),
-      # includeCSS('https://fonts.googleapis.com/icon?family=Material+Icons'),
       tags$head(tags$style(
         HTML(
           ".small-box {height: 120px;}
@@ -58,10 +54,24 @@ shinyUI(
         tabItem(
           tabName = "importante",
           fluidRow(
-            box(
-              title = "Uso adecuado del Dashboard",
-              width = 12,
-              info_dashboard()
+            column(
+              width = 7,
+              box(
+                title = "Uso adecuado del Dashboard",
+                width = 12,
+                info_dashboard()
+              )
+            ),
+            column(
+              width = 5,
+              box(
+                width = 12,
+                title = "Tipos de corte para caminos, hidrografía y curvas de nivel",
+                solidHeader = T,
+                status = "success",
+                height = "400px",
+                info_cut_buffer()
+              )
             )
           )
         ),
@@ -117,6 +127,7 @@ shinyUI(
                   uiOutput("ord_rodales_UI")
                 ),
                 div(
+                  id = "flex",
                   actionBttn(
                     inputId = "get_area",
                     label = "Generar capas",
@@ -124,8 +135,7 @@ shinyUI(
                     size = "sm",
                     color = "success"
                   ),
-                  downfile_ui("down_areas"),
-                  style = "display: flex; align-items: center;"
+                  downfile_ui("down_areas")
                 )
               )     
             ),
@@ -152,6 +162,7 @@ shinyUI(
                   options = list(title = "Selecciona una o más opciones")
                 ),
                 div(
+                  id = "flex",
                   actionBttn(
                     inputId = "apply_order",
                     label = "Ordenar capa",
@@ -159,8 +170,7 @@ shinyUI(
                     size = "sm",
                     color = "success"
                   ) %>%  bs_embed_tooltip(title = "Crea campo 'ID_ord' con el orden"),
-                  downfile_ui("down_sf_ordered"),
-                  style = "display: flex; align-items: center;"
+                  downfile_ui("down_sf_ordered")
                 ),
                 hr(style="height:2px;border-width:0;color:gray;background-color:gray"), 
                 h3("Chequeo de cartografía"),
@@ -196,200 +206,258 @@ shinyUI(
         tabItem(
           tabName = "carto",
           fluidRow(
-            box(
-              width = 6,
-              title = "Generar cartografía",
-              solidHeader = T,
-              status = "success",
-              
-              # HUSO, DECIMALES
-              span(
-                id = "flex",
-                div(
-                  id = "inline",
-                  prettyRadioButtons(
-                    inputId = "huso",
-                    label = "Huso:  ", 
-                    choices = c("18S", "19S"),
-                    selected = "19S",
-                    inline = TRUE, 
-                    status = "success",
-                    fill = TRUE
-                  ),
-                  style = "margin-top: 10px; "
-                ),
-                div(
-                  id = "inline",
-                  numericInput(
-                    inputId = "n_dec",
-                    label = "N° decimales:  ", 
-                    value = 2, 
-                    min = 0, 
-                    max = 4
-                  ),
-                  style = "margin-top: 0px; margin-left: 20px;"
-                ),
-                div(
-                  id = "inline",
-                  pickerInput(
-                    inputId = "provincia_carto",
-                    label = "Seleccione provincia:  ", 
-                    choices = provincias_list,
-                    selected = NULL
-                  ),
-                  style = "margin-top: 0px; margin-left: 20px;"
-                )
-              ),
-              div(style = "margin-top: 10px"),
-              
-              # AREAS DE CORTA
-              leer_sfUI("cart_area", "Ingrese shapefile de áreas de corta") %>% 
-                add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_Area', 'Clase_Uso'"),
-              div(style = "margin-top: -10px"),
-              # RCA_UI("rca_areas"),
-              
-              # RODALES
-              leer_sfUI("cart_rodales", "Ingrese shapefile de rodales") %>%
-                add_help_text(title = "Campos minimos requeridos:\n'N_Rodal', 'Tipo_For'"),
-              div(style = "margin-top: -10px"),
-              prettyToggle(
-                inputId = "tipo_for",
-                label_on = "Tipo_For (numerico): ej., 11",
-                label_off = "Tipo_For (caracter): ej., 'Esclerófilo'",
-                value = T
-              ),
-              # RCA_UI("rca_rodales"),
-              div(style = "margin-top: -10px"),
-              
-              # PREDIOS
-              leer_sfUI("cart_predios", "Ingrese shapefile de limites prediales") %>% 
-                add_help_text(title = "Campos minimos requeridos:\n'N_Predio', 'Nom_Predio', 'Rol'"),
-              div(style = "margin-top: -10px"),
-              
-              # DEM
-              fileInput(
-                inputId = "dem",
-                label = "Ingresar DEM de Alos Palsar (12,5 x 12,5m)",
-                multiple = F,
-                accept = c(".tif",".jp2"),
-                buttonLabel = "Seleccionar",
-                placeholder = "Archivo no seleccionado"
-              ) %>% 
-                add_help_text("Por favor utilizar DEM acotado al área de estudio"),
-              div(style = "margin-top: -10px"),
-              
-              # BDD PARCELAS
-              materialSwitch(
-                inputId = "add_parcelas",
-                label = "¿Crear capa de parcelas?",
-                status = "success"
-              ),
-              uiOutput("add_parcelas_ui"),
-              div(style = "margin-top: -10px"),
-              hr(),
-              
-              # USO ACTUAL
-              materialSwitch(
-                inputId = "add_uso_actual",
-                label = "¿Crear capa de uso actual?",
-                status = "success"
-              ),
-              uiOutput("add_uso_actual_ui"),
-              div(style = "margin-top: -10px"),
-              hr(),
-              
-              # BASES CARTOGRAFICAS
-              h4("Bases cartográficas", style = "font-weight: bold;"),
-              materialSwitch(
-                inputId = "add_cam",
-                label = "¿Crear capa de caminos?",
-                status = "success"
-              ),
-              uiOutput("add_cam_ui"),
-              div(style = "margin-top: -10px"),
-              materialSwitch(
-                inputId = "add_hidro",
-                label = "¿Crear capa de Hidrografía?",
-                status = "success"
-              ),
-              uiOutput("add_hidro_ui"),
-              div(style = "margin-top: -10px"),
-              materialSwitch(
-                inputId = "add_CN",
-                label = "¿Crear capa de curvas de nivel?",
-                status = "success"
-              ),
-              uiOutput("add_CN_ui"),
-              div(style = "margin-top: -10px"),
-              hr(),
-              
-              # NOMBRE PREDIO
-              textInput("NOMPREDIO", "Ingrese un sufijo para el nombre de los archivos", placeholder = "Ej: CHILICAUQUENALTO, KIMAL, etc"),
-              
-              # GET AND DOWNLOAD CARTOGRAFIA 
-              div(
-                actionBttn(
-                  inputId = "get_carto_btn",
-                  label = "Obtener cartografía", 
-                  style = "unite",
-                  size = "sm",
-                  color = "success"
-                ),
-                downfile_ui("down_carto_ui"),
-                style = "display: flex; align-items: center;"
-              ),
-              hr(),
-              
-              # GET APÉNDICES
-              h4("Apéndices", style = "font-weight: bold;"),
-              materialSwitch(
-                inputId = "add_bd_pcob",
-                label = "¿Desea incluir parcelas de cobertura?",
-                status = "success"
-              ),
-              uiOutput("add_bd_pcob_ui"),
-              div(style = "margin-top: -5x"),
-              div(
-                id = "inline",
-                virtualSelectInput(
-                  inputId = "portada",
-                  label = "Seleccionar portada :", 
-                  choices = c("default", "KIMAL"),
-                  selected = "default",
-                  width = "200px",
-                  dropboxWrapper = "body"
-                ),
-                style = "margin-bottom: 10px"
-              ),
-              div(
-                actionBttn(
-                  inputId = "get_apendices_btn",
-                  label = "Obtener Apéndices", 
-                  style = "unite",
-                  size = "sm",
-                  color = "success"
-                ),
-                downfile_ui("down_apendices"),
-                style = "display: flex; align-items: center;"
-              )
-            ),
-            box(
-              width = 6,
-              title = "Tipos de corte para caminos, hidrografía y curvas de nivel",
-              solidHeader = T,
-              status = "success",
-              height = "400px",
-              info_cut_buffer()  
-            )
-          )
-        ),
-        tabItem(
-          tabName = "anexos",
-          fluidRow(
             column(
-              width = 6
-              
-            )
+              width = 6, 
+              box(
+                width = 12,
+                title = "Generar cartografía digital",
+                solidHeader = T,
+                status = "success",
+                
+                # HUSO, DECIMALES
+                span(
+                  id = "flex",
+                  div(
+                    id = "inline",
+                    prettyRadioButtons(
+                      inputId = "huso",
+                      label = "Huso:  ", 
+                      choices = c("18S", "19S"),
+                      selected = "19S",
+                      inline = TRUE, 
+                      status = "success",
+                      fill = TRUE
+                    ),
+                    style = "margin-top: 10px; "
+                  ),
+                  div(
+                    id = "inline",
+                    numericInput(
+                      inputId = "n_dec",
+                      label = "N° decimales:  ", 
+                      value = 2, 
+                      min = 0, 
+                      max = 4
+                    ),
+                    style = "margin-top: 0px; margin-left: 20px;"
+                  ),
+                  div(
+                    id = "inline",
+                    pickerInput(
+                      inputId = "provincia_carto",
+                      label = "Seleccione provincia:  ", 
+                      choices = provincias_list,
+                      selected = NULL
+                    ),
+                    style = "margin-top: 0px; margin-left: 20px;"
+                  )
+                ),
+                div(style = "margin-top: 10px"),
+                
+                # AREAS DE CORTA
+                leer_sfUI("cart_area", "Ingrese shapefile de áreas de corta") %>% 
+                  add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_Area', 'Clase_Uso'"),
+                div(style = "margin-top: -10px"),
+                # RCA_UI("rca_areas"),
+                
+                # RODALES
+                leer_sfUI("cart_rodales", "Ingrese shapefile de rodales") %>%
+                  add_help_text(title = "Campos minimos requeridos:\n'N_Rodal', 'Tipo_For'"),
+                div(style = "margin-top: -10px"),
+                # prettyToggle(
+                #   inputId = "tipo_for",
+                #   label_on = "Tipo_For (numerico): ej., 11",
+                #   label_off = "Tipo_For (caracter): ej., 'Esclerófilo'",
+                #   value = T
+                # ),
+                # RCA_UI("rca_rodales"),
+                div(style = "margin-top: -10px"),
+                
+                # PREDIOS
+                leer_sfUI("cart_predios", "Ingrese shapefile de limites prediales") %>% 
+                  add_help_text(title = "Campos minimos requeridos:\n'N_Predio', 'Nom_Predio', 'Rol'"),
+                div(style = "margin-top: -10px"),
+                
+                # DEM
+                fileInput(
+                  inputId = "dem",
+                  label = "Ingresar DEM de Alos Palsar (12,5 x 12,5m)",
+                  multiple = F,
+                  accept = c(".tif",".jp2"),
+                  buttonLabel = "Seleccionar",
+                  placeholder = "Archivo no seleccionado"
+                ) %>% 
+                  add_help_text("Por favor utilizar DEM acotado al área de estudio"),
+                div(style = "margin-top: -10px"),
+                hr(),
+                
+                # BDD PARCELAS
+                div(
+                  fileInput(
+                    inputId = "bd_parcelas",
+                    label = "Ingresar BD de parcelas",
+                    multiple = F,
+                    accept = c(".xlsx"),
+                    buttonLabel = "Seleccionar",
+                    placeholder = "Archivo no seleccionado"
+                  ) %>% 
+                    add_help_text(
+                      title = "Campos minimos requeridos:\n
+                'Parcela', 'UTM_E', 'UTM_N', 'Especie', 'Copa_NS', 'Copa_EO', 'Habito'"
+                    )
+                ),
+                div(style = "margin-top: -10px"),
+                materialSwitch(
+                  inputId = "add_parcelas",
+                  label = "¿Crear capa de parcelas?",
+                  status = "success"
+                ),
+                # uiOutput("add_parcelas_ui"),
+                div(style = "margin-top: -10px"),
+                hr(),
+                
+                # USO ACTUAL
+                materialSwitch(
+                  inputId = "add_uso_actual",
+                  label = "¿Crear capa de uso actual?",
+                  status = "success"
+                ),
+                uiOutput("add_uso_actual_ui"),
+                div(style = "margin-top: -10px"),
+                hr(),
+                
+                # BASES CARTOGRAFICAS
+                h4("Bases cartográficas", style = "font-weight: bold;"),
+                materialSwitch(
+                  inputId = "add_cam",
+                  label = "¿Crear capa de caminos?",
+                  status = "success"
+                ),
+                uiOutput("add_cam_ui"),
+                div(style = "margin-top: -10px"),
+                materialSwitch(
+                  inputId = "add_hidro",
+                  label = "¿Crear capa de Hidrografía?",
+                  status = "success"
+                ),
+                uiOutput("add_hidro_ui"),
+                div(style = "margin-top: -10px"),
+                materialSwitch(
+                  inputId = "add_CN",
+                  label = "¿Crear capa de curvas de nivel?",
+                  status = "success"
+                ),
+                uiOutput("add_CN_ui"),
+                div(style = "margin-top: -10px"),
+                hr(),
+                
+                # NOMBRE PREDIO
+                textInput("NOMPREDIO", "Ingrese un sufijo para el nombre de los archivos", placeholder = "Ej: CHILICAUQUENALTO, KIMAL, etc"),
+                
+                # GET AND DOWNLOAD CARTOGRAFIA 
+                div(
+                  id = "flex",
+                  actionBttn(
+                    inputId = "get_carto_btn",
+                    label = "Obtener cartografía", 
+                    style = "unite",
+                    size = "sm",
+                    color = "success"
+                  ),
+                  downfile_ui("down_carto")
+                )
+              ) # fin box
+            ), # fin 1r columna
+            column(
+              width = 6,
+              box(
+                width = 12,
+                title = "Generar Apéndices",
+                solidHeader = T,
+                status = "success",
+                # GET APÉNDICES
+                div(style = "margin-top: -10x"),
+                h3("Apéndices", style = "font-weight: bold;"),
+                div(
+                  id = "inline",
+                  virtualSelectInput(
+                    inputId = "portada",
+                    label = "Seleccionar portada :", 
+                    choices = c("default", "KIMAL"),
+                    selected = "default",
+                    width = "200px",
+                    dropboxWrapper = "body"
+                  ),
+                  style = "margin-bottom: 10px"
+                ),
+                h4("Apéndices 2 y 3 (Densidad de especies y ubicación de parcela)", style = "font-weight: bold;"),
+                materialSwitch(
+                  inputId = "add_bd_pcob",
+                  label = "¿Desea incluir parcelas de cobertura?",
+                  status = "success"
+                ),
+                uiOutput("add_bd_pcob_ui"),
+                div(style = "margin-top: -5px"),
+                div(
+                  id = "flex",
+                  actionBttn(
+                    inputId = "get_apendices_2y3_btn",
+                    label = "Obtener Apéndices 2 y 3", 
+                    style = "unite",
+                    size = "sm",
+                    color = "success"
+                  ),
+                  downfile_ui("down_apendices_2", label = "Apéndice 2", style = "material-flat"),
+                  downfile_ui("down_apendices_3", label = "Apéndice 3", style = "material-flat")
+                ),
+                br(),
+                h4("Apéndice 5 - Tablas formulario CONAF", style = "font-weight: bold;"),
+                div(style = "margin-top: 10px"),
+                div(
+                  style = "margin-left: -15px",
+                  downfile_ui("tabla_attr_rodal_0",label = "Tabla atributación de rodales", style = "material-flat", icon = "file-excel"),
+                ),
+                div(style = "margin-top: 10px"),
+                fileInput(
+                  inputId = "tabla_attr_rodal",
+                  label = "Ingresar tabla con los atributos de rodal definitiva y revisada",
+                  multiple = F,
+                  accept = c(".xlsx"),
+                  buttonLabel = "Seleccionar",
+                  placeholder = "Archivo no seleccionado"
+                ) %>% 
+                  add_help_text(title = "Cargar con los mismos atributos de como se descargó"),
+                div(style = "margin-top: -5px"),
+                leer_sfUI("obras_ap5", "Ingresar obras (opcional)") %>% 
+                  add_help_text(title = "Campos minimos requeridos:\n'Tipo', 'Obra'"),
+                div(style = "margin-top: -5px"),
+                div(
+                  fileInput(
+                    inputId = "bd_fauna",
+                    label = "Ingresar BD de fauna",
+                    multiple = F,
+                    accept = c(".xlsx"),
+                    buttonLabel = "Seleccionar",
+                    placeholder = "Archivo no seleccionado"
+                  ) %>% 
+                    add_help_text(
+                      title = "Campos minimos requeridos:\n'Nombre_cientifico', 'UTM_E', 'UTM_N', 'Categoria', 'Decreto'"
+                    )
+                ),
+                div(style = "margin-top: -10px"),
+                div(
+                  id = "flex",
+                  actionBttn(
+                    inputId = "get_apendice_5_btn",
+                    label = "Obtener tablas formulario", 
+                    style = "unite",
+                    size = "sm",
+                    color = "success"
+                  ),
+                  downfile_ui("down_apendice_5", label = "Apéndice 5", style = "material-flat")
+                )
+              )
+            ) # fin 2da columna
           )
         )
       )# fin tabitems

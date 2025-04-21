@@ -1,12 +1,12 @@
-downfile_ui <- function(id,...){
+downfile_ui <- function(id, style = "material-circle", icon = "download", ...){
   ns <- NS(id)
   div(
     downloadBttn(
       outputId = ns("downfile"), 
-      style = "material-circle", 
+      style = style,
       size = "sm",
       color = "success",
-      icon = icon("download"),
+      icon = icon(icon),
       ...
     ),
     style = "margin-left: 15px;"

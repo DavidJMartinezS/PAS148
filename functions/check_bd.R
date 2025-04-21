@@ -1,6 +1,6 @@
 check_bd_flora <- function(x, y = NULL, shinyalert = F){
   if(!is.null(y) & any(st_is(y, "POLYGON") | st_is(y, "MULTIPOLYGON")) & all(c('UTM_E', 'UTM_N') %in% names(x))){
-    x <- x %>% 
+    x <- x %>%
       st_as_sf(coords = c("UTM_E", "UTM_N"), crs = st_crs(y), remove = F) %>% 
       st_intersection(st_union(st_collection_extract(y, "POLYGON"))) %>% 
       st_drop_geometry()
