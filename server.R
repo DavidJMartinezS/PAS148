@@ -190,7 +190,7 @@ shinyServer(function(input,output,session){
     show_modal_spinner(
       spin = "flower",
       color = "#35978F",
-      text = div(br(), p("Generando rodales y áreas de corta.", br(), " Por favor espere, esto puede tardar unos minutos"))
+      text = div(br(), p("Generando capa de predios, rodales y áreas de corta.", br(), " Puede ir a prepararse un café, esto tardará unos minutos"))
     )
     req(areas_prop())
     remove_modal_spinner()
@@ -547,7 +547,7 @@ shinyServer(function(input,output,session){
     show_modal_spinner(
       spin = "flower",
       color = "#35978F",
-      text = div(br(),p("Generando cartografía digital.",br()," Por favor espere, esto puede tardar unos minutos"))
+      text = div(br(),p("Generando cartografía digital.",br()," Puede ir a prepararse un café, esto tardarará unos minutos"))
     )
     req(carto_digital())
     remove_modal_spinner()

@@ -1,4 +1,3 @@
-library(bsicons)
 library(bslib)
 library(bsplus)
 library(dataPAS)
