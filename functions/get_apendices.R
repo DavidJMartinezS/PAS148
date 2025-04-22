@@ -53,7 +53,7 @@ nha_x_sp_fun <- function(parcelas, bd){
     summarise(Nha = mean(Nha,na.rm = T))
 }
 
-# Funciones Apénices
+# Funciones Apéndices
 apendice_2_3 <- function(bd_flora, bd_pcob = NULL, rodales, predios, portada = "default", provincia, huso = NULL){
   if (is.null(huso)) {
     huso <- if_else(
@@ -131,7 +131,7 @@ apendice_2_3 <- function(bd_flora, bd_pcob = NULL, rodales, predios, portada = "
     big.mark = "."
   )
   
-  ft_ap2 <- bind_rows(df_cob, df_flora) %>% 
+  ft_2 <- bind_rows(df_cob, df_flora) %>% 
     pivot_wider(
       names_from = Fuente,
       values_from = c(Nha, Cob_arb, Cob_parc)
@@ -208,11 +208,13 @@ apendice_2_3 <- function(bd_flora, bd_pcob = NULL, rodales, predios, portada = "
     wb_add_flextable(sheet = "Ubicación_Parcelas", ft = ft_3, start_col = 1, start_row = 1)
   
   return(
-    Apendice_2 = wb_ap2,
-    Apendice_3 = wb_ap3
+    list(
+      Apendice_2 = wb_ap2,
+      Apendice_3 = wb_ap3
+    )
   )
 }
-apendice_5 <- function(bd_flora, rodales, tabla_predios, tabla_areas, tabla_attr_rodal, carto_uso_actual = NULL, obras = NULL, bd_fauna = NULL){
+apendice_5 <- function(bd_flora, rodales, tabla_predios, tabla_areas, tabla_attr_rodal, portada = "default", provincia, carto_uso_actual = NULL, obras = NULL, bd_fauna = NULL){
   set_flextable_defaults(
     decimal.mark = ",",
     big.mark = "."
@@ -220,9 +222,9 @@ apendice_5 <- function(bd_flora, rodales, tabla_predios, tabla_areas, tabla_attr
   
   wb_ap5 <- wb_workbook(theme = "Integral") %>% 
     {if(portada == "KIMAL"){
-      wb_portada_148_kimal(., apendice = 5, provincia = "Limarí")
+      wb_portada_148_kimal(., apendice = 5, provincia = provincia)
     } else {
-      wb_portada_148_default(., apendice = 5, provincia = "Limarí")
+      wb_portada_148_default(., apendice = 5, provincia = provincia)
     }} 
   
   new_border <- create_border(
@@ -560,27 +562,12 @@ apendice_5 <- function(bd_flora, rodales, tabla_predios, tabla_areas, tabla_attr
     wb_add_border(dims = wb_dims(x = tbl_4, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
     wb_add_numfmt(dims = wb_dims(x = tbl_4, cols = 4, select = "data"), numfmt = "#,##0.00") %>% 
     wb_set_col_widths(cols = seq_len(ncol(tbl_4)), width = "auto") %>% 
-    # Tabla uso actual
-    {if (exists("tbl_5")) {
-      . %>% 
-        wb_add_worksheet("Uso_Actual", grid_lines = F) %>% 
-        wb_add_flextable(sheet = "Uso_Actual", ft = tbl_5, start_col = 1, start_row = 1)
-    } else .} %>% 
     # Tabla Suelos
     wb_add_worksheet("Suelos", grid_lines = F) %>% 
     wb_add_flextable(sheet = "Suelos", ft = tbl_6, start_col = 1, start_row = 1) %>% 
     # Tabla Recursos hídricos
     wb_add_worksheet("Recursos_hídricos", grid_lines = F) %>% 
     wb_add_flextable(sheet = "Recursos_hídricos", ft = tbl_7, start_col = 1, start_row = 1) %>% 
-    # Tabla fauna
-    {if (exists("tbl_13")) {
-      . %>% 
-        wb_add_worksheet("BD_Fauna") %>% 
-        wb_add_data(sheet = "Estadisticos", x = tbl_13, start_col = 1, start_row = 1) %>% 
-        wb_set_cell_style(dims = wb_dims(x = tbl_13, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
-        wb_add_border(dims = wb_dims(x = tbl_13, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
-        wb_set_col_widths(cols = seq_len(ncol(tbl_13)), width = "auto")
-    } else .} %>% 
     # Tabla Vegetación
     wb_add_worksheet("Vegetación", grid_lines = F) %>% 
     wb_add_flextable(sheet = "Vegetación", ft = ft_8, start_col = 1, start_row = 1) %>% 
@@ -590,12 +577,6 @@ apendice_5 <- function(bd_flora, rodales, tabla_predios, tabla_areas, tabla_attr
     # Tabla Resumen
     wb_add_worksheet("Resumen", grid_lines = F) %>% 
     wb_add_flextable(sheet = "Resumen", ft = tbl_10, start_col = 1, start_row = 1) %>%  
-    # Tabla Obras
-    {if (exists("tbl_11")) {
-      . %>% 
-        wb_add_worksheet("Obras", grid_lines = F) %>% 
-        wb_add_flextable(sheet = "Obras", ft = tbl_11, start_col = 1, start_row = 1)
-    }} %>% 
     # tabla Estadisticos
     wb_add_worksheet("Estadisticos") %>% 
     wb_add_data(sheet = "Estadisticos", x = tbl_12, start_col = 1, start_row = 1) %>% 
@@ -604,6 +585,27 @@ apendice_5 <- function(bd_flora, rodales, tabla_predios, tabla_areas, tabla_attr
     wb_add_numfmt(dims = wb_dims(x = tbl_12, cols = 2, rows = 4, select = "data"), numfmt = "#,##0.00") %>% 
     wb_set_col_widths(cols = seq_len(ncol(tbl_12)), width = "auto") 
     
+  # Tabla uso actual
+  if (exists("tbl_5")) {
+    wb <- wb %>% 
+      wb_add_worksheet("Uso_Actual", grid_lines = F) %>% 
+      wb_add_flextable(sheet = "Uso_Actual", ft = tbl_5, start_col = 1, start_row = 1)
+  } 
+  # Tabla fauna
+  if (exists("tbl_13")) {
+    wb <- wb %>% 
+      wb_add_worksheet("BD_Fauna") %>% 
+      wb_add_data(sheet = "Estadisticos", x = tbl_13, start_col = 1, start_row = 1) %>% 
+      wb_set_cell_style(dims = wb_dims(x = tbl_13, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
+      wb_add_border(dims = wb_dims(x = tbl_13, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
+      wb_set_col_widths(cols = seq_len(ncol(tbl_13)), width = "auto")
+  }
+  # Tabla Obras
+  if (exists("tbl_11")) {
+    wb <- wb %>%
+      wb_add_worksheet("Obras", grid_lines = F) %>% 
+      wb_add_flextable(sheet = "Obras", ft = tbl_11, start_col = 1, start_row = 1)
+  }
   
   return(wb)
 }

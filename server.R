@@ -17,7 +17,7 @@ shinyServer(function(input,output,session){
     )
   })
   
-  # datos ----
+  # DATOS ----
   comunas <- eventReactive(crs(),{
     read_sf(
       system.file("Comunas.gdb", package = "dataPAS")
@@ -36,7 +36,7 @@ shinyServer(function(input,output,session){
       group_by(PROVINCIA) %>% summarise(geometry = st_union(geometry))
   })
   
-  # Inputs ----
+  # INPUTS ----
   crs <- reactive({
     req(LB())
     sf_use_s2(F)
@@ -94,17 +94,17 @@ shinyServer(function(input,output,session){
   
   suelos <- leer_sf(id = "suelos", crs = crs(), fx = function(x){
     x %>% 
-      rename_if(names(.) %>% stri_detect_regex("textcaus|clase_uso", case_insensitive = T), ~ "Clase_uso") 
+      rename_if(names(.) %>% stri_detect_regex("textcaus|clase_uso", case_insensitive = T), ~ "Clase_Uso") 
   })
   observeEvent(suelos(),{
-    if(!all(c('Clase_uso') %in% names(suelos()))){
-      shinyalerta(shinyalerta(names_act = names(st_drop_geometry(suelos())), names_req = c('Clase_uso')))
+    if(!all(c('Clase_Uso') %in% names(suelos()))){
+      shinyalerta(shinyalerta(names_act = names(st_drop_geometry(suelos())), names_req = c('Clase_Uso')))
     } else {
       notify_success("Perfecto!", timeout = 3000, position = "right-bottom")
     }
   })
   
-  # Generar áreas de corta ----
+  # GENERAR ÁREAS DE CORTA ----
   observeEvent(input$group_by_dist,{
     output$distanceUI <- renderUI({
       if (input$group_by_dist) {
@@ -194,11 +194,12 @@ shinyServer(function(input,output,session){
     )
     req(areas_prop())
     remove_modal_spinner()
+    gc(reset = T)
   })
   
   downfile(id = "down_areas", x = areas_prop(), name_save = c("Rodales_propuestos","Areas_propuestas","Predios_propuestos"))
   
-  # Ordenar shapefile ----
+  # ORDENAR SHAPEFILE ----
   shp_to_order <- leer_sf("sf_order")
   shp_to_order_name <- leer_sf("sf_order", path = T)
   
@@ -233,11 +234,12 @@ shinyServer(function(input,output,session){
     req(shp_ordered())
     remove_modal_spinner()
     notify_success("Shapefile ordenado!", timeout = 3000, position = "right-bottom")
+    gc(reset = T)
   })
   
   downfile(id = "down_sf_ordered", x = shp_ordered(), name_save = str_c(shp_to_order_name(),"_ord"))
   
-  # Chequeo de cartografía ----
+  # CHEQUEO CARTOGRAFÍA ----
   shp_check <- leer_sf(id = "sf_check")
   
   shinyjs::disable("check_carto")
@@ -396,10 +398,6 @@ shinyServer(function(input,output,session){
       mutate_at(vars(contains("Cob_BB")), ~str_trim(str_to_lower(.)))
   })
   
-  observeEvent(bd_parcelas(),{
-    check_bd_flora(x = bd_parcelas(), y = rodales_def(), shinyalert = T)
-  })
-  
   parcelas_rodales <- reactive({
     req(bd_parcelas(), rodales_def())
     bd_parcelas() %>% 
@@ -423,6 +421,10 @@ shinyServer(function(input,output,session){
       group_by(N_Rodal, N) %>% 
       mutate(N_Parc = cur_group_id()) %>% 
       ungroup()
+  })
+  
+  observeEvent(parcelas_rodales(),{
+    check_bd_flora(x = parcelas_rodales(), shinyalert = T)
   })
   
   # BD PCOB ----
@@ -495,7 +497,7 @@ shinyServer(function(input,output,session){
   suelos_uso_act <- leer_sf(
     id = "suelos_uso_act", 
     crs = crs_carto(),
-    fx = function(x){x %>% rename_all(~ if_else(. == "geometry", ., str_to_upper(stri_trans_general(.,"Latin-ASCII"))))},
+    fx = function(x){x %>% rename_if(names(.) %>% stri_detect_regex("textcaus|clase_uso", case_insensitive = T), ~ "TEXTCAUS")},
     wkt_filter = st_as_text(st_geometry(predios_def() %>% st_union()))
   )
   observeEvent(suelos_uso_act(),{
@@ -520,7 +522,7 @@ shinyServer(function(input,output,session){
       TipoFor_num = input$tipo_for,
       dem = DEM(),
       add_parcelas = input$add_parcelas,
-      bd_parcelas = parcelas_rodales(),
+      bd_parcelas = bd_parcelas(),
       from_RCA = F,
       RCA = NULL,
       add_uso_actual = input$add_uso_actual,
@@ -737,6 +739,7 @@ shinyServer(function(input,output,session){
       tabla_predios = carto_digital()$tabla_predios, 
       tabla_areas = carto_digital()$tabla_areas, 
       tabla_attr_rodal = tabla_attr_rodal(),
+      portada = input$portada,
       carto_uso_actual = carto_digital()$carto_uso_actual, 
       obras = obras_ap5(), 
       bd_fauna = bd_fauna()

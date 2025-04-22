@@ -295,7 +295,7 @@ shinyUI(
                 div(
                   fileInput(
                     inputId = "bd_parcelas",
-                    label = "Ingresar BD de parcelas",
+                    label = "Ingresar BD de parcelas (Solo datos de las parcelas que se desean incluir)",
                     multiple = F,
                     accept = c(".xlsx"),
                     buttonLabel = "Seleccionar",
@@ -321,7 +321,8 @@ shinyUI(
                   inputId = "add_uso_actual",
                   label = "¿Crear capa de uso actual?",
                   status = "success"
-                ),
+                ) %>% 
+                  add_help_text(title = "Puede hacer que tarde mucho en ejecutarse la función"),
                 uiOutput("add_uso_actual_ui"),
                 div(style = "margin-top: -10px"),
                 hr(),
@@ -346,7 +347,8 @@ shinyUI(
                   inputId = "add_CN",
                   label = "¿Crear capa de curvas de nivel?",
                   status = "success"
-                ),
+                ) %>% 
+                  add_help_text(title = "Puede hacer que tarde mucho en ejecutarse la función"),
                 uiOutput("add_CN_ui"),
                 div(style = "margin-top: -10px"),
                 hr(),
