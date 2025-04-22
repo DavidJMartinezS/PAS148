@@ -206,10 +206,6 @@ get_rod_area <- function(
     ) %>% 
     select(!!!group_list, Tipo_For, Tipo_Bos, N_Rodal, N_a, N_Area, N_Pred_ori, Clase_Uso, Sup_ha, Sup_m2) 
   
-  Rodales %>% 
-    # group_by(N_Rodal) %>% 
-    .[BN_areas,]
-  
   Predios <- predios %>%
     filter(N_Predio %in% unique(BN_areas$N_Pred_ori)) %>% 
     group_by(N_Predio) %>% 

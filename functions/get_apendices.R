@@ -214,6 +214,7 @@ apendice_2_3 <- function(bd_flora, bd_pcob = NULL, rodales, predios, portada = "
     )
   )
 }
+
 apendice_5 <- function(bd_flora, rodales, tabla_predios, tabla_areas, tabla_attr_rodal, portada = "default", provincia, carto_uso_actual = NULL, obras = NULL, bd_fauna = NULL){
   set_flextable_defaults(
     decimal.mark = ",",

@@ -296,6 +296,17 @@ shinyServer(function(input,output,session){
     if(!all(c('N_Rodal', 'Tipo_For') %in% names(rodales_def()))){
       shinyalerta(names_act = names(rodales_def()), names_req = c('N_Rodal', 'Tipo_For'))
     }
+    if((rodales_def() %>% st_transform(4326) %>% st_make_valid() %>% st_union() %>% st_centroid() %>% st_coordinates() %>% .[,1] >= -72 & input$huso == "18S") |
+       (rodales_def() %>% st_transform(4326) %>% st_make_valid() %>% st_union() %>% st_centroid() %>% st_coordinates() %>% .[,1] < -72 & input$huso == "19S")){
+      shinyalert(
+        title = "Ups!", 
+        text = "Coordenadas del shp no coinciden con la seleccionada",
+        type = "error",
+        closeOnEsc = T, 
+        showConfirmButton = T,
+        animation = T
+      )
+    }
   })
   # n_rca_rodales <- RCA_SRV("rca_rodales")
   
@@ -304,6 +315,17 @@ shinyServer(function(input,output,session){
   observeEvent(predios_def(),{
     if(!all(c('N_Predio', 'Nom_Predio', 'Rol') %in% names(predios_def()))){
       shinyalerta(names_act = names(predios_def()), names_req = c('N_Predio', 'Nom_Predio', 'Rol'))
+    }
+    if((predios_def() %>% st_transform(4326) %>% st_make_valid() %>% st_union() %>% st_centroid() %>% st_coordinates() %>% .[,1] >= -72 & input$huso == "18S") |
+       (predios_def() %>% st_transform(4326) %>% st_make_valid() %>% st_union() %>% st_centroid() %>% st_coordinates() %>% .[,1] < -72 & input$huso == "19S")){
+      shinyalert(
+        title = "Ups!", 
+        text = "Coordenadas del shp no coinciden con la seleccionada",
+        type = "error",
+        closeOnEsc = T, 
+        showConfirmButton = T,
+        animation = T
+      )
     }
   })
   
@@ -464,9 +486,9 @@ shinyServer(function(input,output,session){
       mutate_at(vars(starts_with("Copa")), as.numeric)
   })
   
-  observeEvent(bd_pcob(),{
-    check_bd_pcob(bd_pcob())
-  })
+  # observeEvent(bd_pcob(),{
+  #   check_bd_pcob(bd_pcob())
+  # })
   
   # USO ACTUAL ----
   observeEvent(input$add_uso_actual,{
