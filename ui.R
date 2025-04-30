@@ -1,7 +1,61 @@
 shinyUI(
   dashboardPage(
     skin = "green",
+    # HEADER ----
     dashboardHeader(
+      leftUi = tagList(
+        div(
+          radioGroupButtons(
+            inputId = "PAS",
+            choiceNames = c("PAS 148", "PAS 151"),
+            choiceValues = c(148, 151),
+            selected = 148,
+            status = "warning"
+          ),
+          style = "margin-left: 10px;"
+        ),
+        # verbatimTextOutput("out"),
+        dropdownButton(
+          label = "Ajustes bases",
+          icon = icon("gear"),
+          status = "warning",
+          circle = F,
+          span(
+            id = "flex",
+            prettyRadioButtons(
+              inputId = "huso",
+              label = "Huso:  ", 
+              choices = c("18S", "19S"),
+              selected = "19S",
+              inline = TRUE, 
+              status = "success",
+              fill = TRUE, 
+              animation = "smooth"
+            ),
+            div(
+              numericInput(
+                inputId = "n_dec",
+                label = "N° decimales superficie:", 
+                value = 2, 
+                min = 0, 
+                max = 4
+              ),
+            style = "margin-left: 20px;"
+            )
+          )
+        ),
+        div(
+          id = "inline",
+          pickerInput(
+            inputId = "provincia",
+            label = "Provincia:", 
+            choices = provincias_list,
+            selected = NULL,
+            options = pickerOptions(container = "body", style = "btn-warning"),
+          ),
+          style = "color: white; margin-left: 10px;"
+        )
+      ),
       title = tagList(
         span(class = "logo-lg", "PAS 148"),
         img(src = "https://github.com/DavidJMartinezS/PAS148/blob/main/www/logo_geobiota.png?raw=true")
@@ -29,6 +83,7 @@ shinyUI(
       ),
       userOutput("user")
     ),
+    # SIDEBAR ----
     dashboardSidebar(
       sidebarMenu(
         menuItem("Importante", tabName = "importante", icon = icon("circle-info")),
@@ -36,11 +91,22 @@ shinyUI(
         menuItem("Cartografía y Anexos", tabName = "carto", icon = icon("layer-group"))
       )
     ),
+    # BODY ----
     dashboardBody(
       shinyjs::useShinyjs(),
       use_bs_popover(),
       shinyEffects::setShadow(class = "dropdown-menu"),
       shinyEffects::setShadow(class = "box"),
+      tags$head(tags$style(HTML("@import url('https://fonts.googleapis.com/css?family=News+Cycle');
+
+
+                        h1 {
+                            font-family:'News Cycle',sans-serif;
+                            font-size: 48px;
+                            font-weight: 1000;
+                            line-height: 1.1;
+                            color: 'slategrey';
+                        }"))),
       tags$head(tags$style(
         HTML(
           ".small-box {height: 120px;}
@@ -75,6 +141,7 @@ shinyUI(
             )
           )
         ),
+        # Predios rodales y áreas preliminares ----
         tabItem(
           tabName = "ayuda",
           fluidRow(
@@ -82,17 +149,16 @@ shinyUI(
               width = 6,
               box(
                 width = 12,
-                title = "Generar rodales y áreas de corta",
+                title = "Generar Predios, rodales y áreas de corta",
                 solidHeader = T,
                 status = "success",
                 leer_sfUI("linea_base", "Ingrese cartografía de linea base") %>% 
-                  add_help_text(title = "Campos minimos requeridos:\n'Tipo_for', 'Subtipo_fo', 'Regulacion'"),
-                leer_sfUI("obras", "Ingrese shp de obras") %>% 
-                  add_help_text(title = "Campos minimos requeridos:\n'Obra','Tipo'"),
+                  add_help_text(title = "Campos minimos requeridos:\n'Tipo_for', 'Subtipo_fo', 'Tipo_veg', 'Regulacion'"),
+                leer_sfUI("obras", "Ingrese shp de obras"),
                 leer_sfUI("predios", "Ingrese shp de predios") %>%
-                  add_help_text(title = "Campos minimos requeridos:\n'N_Predio','Nom_Predio', 'Rol', 'Prop'"),
+                  add_help_text(title = "Campos minimos requeridos:\n'N_Predio','Nom_Predio', 'Rol', 'Propietari'"),
                 leer_sfUI("suelos", "Ingrese shp de suelos") %>%
-                  add_help_text(title = "Campos minimos requeridos:\n'Textcaus'"),
+                  add_help_text(title = "Campos minimos requeridos:\n'TEXTCAUS'"),
                 pickerInput(
                   inputId = "group_by_LB",
                   label = "Agrupar por (Opcional):",
@@ -139,6 +205,7 @@ shinyUI(
                 )
               )     
             ),
+            # Ayudas cartográficas ----
             column(
               width = 6,
               box(
@@ -146,14 +213,17 @@ shinyUI(
                 solidHeader = T,
                 status = "success",
                 title = "Ayudas cartográficas",
+                div(style = "margin-top: -10px"),
                 h3("Ordenar shapefile"),
                 leer_sfUI("sf_order","Ingrese Shapefile que desea ordenar"),
+                div(style = "margin-top: -10px"),
                 pickerInput(
                   inputId = "orden",
                   label = "Ordenar de:",
                   selected = "NS-OE",
                   choices = c("NS-OE","NS-EO","SN-EO","SN-OE","EO-NS","EO-SN","OE-NS","OE-SN")
                 ),
+                div(style = "margin-top: -10px"),
                 pickerInput(
                   inputId = "select_field_order",
                   label = "Agrupar por (Opcional):",
@@ -173,8 +243,10 @@ shinyUI(
                   downfile_ui("down_sf_ordered")
                 ),
                 hr(style="height:2px;border-width:0;color:gray;background-color:gray"), 
+                # Chequeo cartografía
                 h3("Chequeo de cartografía"),
                 leer_sfUI("sf_check","Ingrese Shapefile"),
+                div(style = "margin-top: -10px"),
                 pickerInput(
                   inputId = "select_sf_check",
                   label = "Seleccione la capa a la que corresponde el shapefile",
@@ -198,11 +270,42 @@ shinyUI(
                   style = "unite",
                   size = "sm",
                   color = "success"
+                ),
+                hr(style="height:2px;border-width:0;color:gray;background-color:gray"), 
+                # Agregar atributos pendientes e hidrografía
+                h3("Agregar Atributos"),
+                leer_sfUI("sf_to_attr","Ingrese Shapefile al cual añadir los atributos"),
+                div(style = "margin-top: -10px"),
+                materialSwitch(
+                  inputId = "add_pend_info",
+                  label = "¿Agregar pendiente media y rangos de pendientes?",
+                  status = "success"
+                ) %>% add_help_text("Crea o actualiza los campos 'Pend_media' y 'Ran_Pend'"),
+                uiOutput("add_pend_info_ui"),
+                materialSwitch(
+                  inputId = "add_hidro_info",
+                  label = "¿Agregar distancia a los cursos de agua?",
+                  status = "success"
+                ) %>% add_help_text("Crea o actualiza los campos 'Distancia' e incluye campos a elección"),
+                uiOutput("add_hidro_info_ui"),
+                div(
+                  id = "flex",
+                  actionBttn(
+                    inputId = "add_attr",
+                    label = "Atributar", 
+                    style = "unite",
+                    size = "sm",
+                    color = "success"
+                  ),
+                  downfile_ui(id = "down_sf", style = "material-flat", label = "Shapefile"),
+                  div(style = "margin-left: 10px"),
+                  downfile_ui(id = "down_xlsx", style = "material-flat", label = "Excel")
                 )
               )
             )
           )
         ),
+        # Carto Digital ----
         tabItem(
           tabName = "carto",
           fluidRow(
@@ -213,72 +316,18 @@ shinyUI(
                 title = "Generar cartografía digital",
                 solidHeader = T,
                 status = "success",
-                
-                # HUSO, DECIMALES
-                span(
-                  id = "flex",
-                  div(
-                    id = "inline",
-                    prettyRadioButtons(
-                      inputId = "huso",
-                      label = "Huso:  ", 
-                      choices = c("18S", "19S"),
-                      selected = "19S",
-                      inline = TRUE, 
-                      status = "success",
-                      fill = TRUE
-                    ),
-                    style = "margin-top: 10px; "
-                  ),
-                  div(
-                    id = "inline",
-                    numericInput(
-                      inputId = "n_dec",
-                      label = "N° decimales:  ", 
-                      value = 2, 
-                      min = 0, 
-                      max = 4
-                    ),
-                    style = "margin-top: 0px; margin-left: 20px;"
-                  ),
-                  div(
-                    id = "inline",
-                    pickerInput(
-                      inputId = "provincia_carto",
-                      label = "Seleccione provincia:  ", 
-                      choices = provincias_list,
-                      selected = NULL
-                    ),
-                    style = "margin-top: 0px; margin-left: 20px;"
-                  )
-                ),
-                div(style = "margin-top: 10px"),
-                
-                # AREAS DE CORTA
                 leer_sfUI("cart_area", "Ingrese shapefile de áreas de corta") %>% 
                   add_help_text(title = "Campos minimos requeridos:\n'Nom_Predio', 'N_Area', 'Clase_Uso'"),
                 div(style = "margin-top: -10px"),
                 # RCA_UI("rca_areas"),
-                
-                # RODALES
                 leer_sfUI("cart_rodales", "Ingrese shapefile de rodales") %>%
                   add_help_text(title = "Campos minimos requeridos:\n'N_Rodal', 'Tipo_For'"),
                 div(style = "margin-top: -10px"),
-                # prettyToggle(
-                #   inputId = "tipo_for",
-                #   label_on = "Tipo_For (numerico): ej., 11",
-                #   label_off = "Tipo_For (caracter): ej., 'Esclerófilo'",
-                #   value = T
-                # ),
                 # RCA_UI("rca_rodales"),
                 div(style = "margin-top: -10px"),
-                
-                # PREDIOS
                 leer_sfUI("cart_predios", "Ingrese shapefile de limites prediales") %>% 
-                  add_help_text(title = "Campos minimos requeridos:\n'N_Predio', 'Nom_Predio', 'Rol'"),
+                  add_help_text(title = "Campos minimos requeridos:\n'N_Predio', 'Nom_Predio', 'Rol', 'Propietari"),
                 div(style = "margin-top: -10px"),
-                
-                # DEM
                 fileInput(
                   inputId = "dem",
                   label = "Ingresar DEM de Alos Palsar (12,5 x 12,5m)",
@@ -290,11 +339,10 @@ shinyUI(
                   add_help_text("Por favor utilizar DEM acotado al área de estudio"),
                 div(style = "margin-top: -10px"),
                 hr(),
-                
-                # BDD PARCELAS
+                # Bd flora
                 div(
                   fileInput(
-                    inputId = "bd_parcelas",
+                    inputId = "bd_flora",
                     label = "Ingresar BD de parcelas (Solo datos de las parcelas que se desean incluir)",
                     multiple = F,
                     accept = c(".xlsx"),
@@ -312,11 +360,9 @@ shinyUI(
                   label = "¿Crear capa de parcelas?",
                   status = "success"
                 ),
-                # uiOutput("add_parcelas_ui"),
                 div(style = "margin-top: -10px"),
                 hr(),
-                
-                # USO ACTUAL
+                # Uso actual 
                 materialSwitch(
                   inputId = "add_uso_actual",
                   label = "¿Crear capa de uso actual?",
@@ -326,7 +372,6 @@ shinyUI(
                 uiOutput("add_uso_actual_ui"),
                 div(style = "margin-top: -10px"),
                 hr(),
-                
                 # BASES CARTOGRAFICAS
                 h4("Bases cartográficas", style = "font-weight: bold;"),
                 materialSwitch(
@@ -436,7 +481,7 @@ shinyUI(
                 div(
                   fileInput(
                     inputId = "bd_fauna",
-                    label = "Ingresar BD de fauna",
+                    label = "Ingresar BD de fauna (opcional)",
                     multiple = F,
                     accept = c(".xlsx"),
                     buttonLabel = "Seleccionar",

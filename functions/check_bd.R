@@ -1,14 +1,19 @@
 check_bd_flora <- function(x, y = NULL, shinyalert = F){
-  if(!is.null(y) & any(st_is(y, "POLYGON") | st_is(y, "MULTIPOLYGON")) & all(c('UTM_E', 'UTM_N') %in% names(x))){
-    x <- x %>%
-      st_as_sf(coords = c("UTM_E", "UTM_N"), crs = st_crs(y), remove = F) %>% 
-      st_intersection(st_union(st_collection_extract(y, "POLYGON"))) %>% 
-      st_drop_geometry()
+  if(!is.null(y) & all(c('UTM_E', 'UTM_N') %in% names(x))){
+    if (any(st_is(y, "POLYGON") | st_is(y, "MULTIPOLYGON"))) {
+      x <- x %>%
+        st_as_sf(coords = c("UTM_E", "UTM_N"), crs = st_crs(y), remove = F) %>% 
+        st_intersection(st_union(st_collection_extract(y, "POLYGON"))) %>% 
+        st_drop_geometry()
+    }
   } %>% suppressWarnings()
   # Verificar que estén los campos mínimos ----
-  if (!all(c('Parcela', 'UTM_E', 'UTM_N', 'Especie', 'N_ind', 'Habito', 'Cob_BB', 'Tipo_veg') %in% names(x))) {
-    if (condition) {
-      shinyalerta(names_act = names(x), names_req = c('Parcela', 'UTM_E', 'UTM_N', 'Especie', 'N_ind', 'Habito', 'Cob_BB'))
+  if (!all(c('Parcela', 'UTM_E', 'UTM_N', 'Especie', 'N_ind', 'Habito', 'Cob_BB', 'Tipo_veg', 'DS_68', 'RCE') %in% names(x))) {
+    if (shinyalert) {
+      shinyalerta(
+        names_act = names(x), 
+        names_req = c('Parcela', 'UTM_E', 'UTM_N', 'Especie', 'N_ind', 'Habito', 'Cob_BB', 'Tipo_veg', 'DS_68', 'RCE')
+      )
     } else {
       cat(
         "\033[31mProblemas!","\U0001FAE0","Shapefile sin los campos requeridos","\n",
@@ -170,7 +175,7 @@ check_bd_flora <- function(x, y = NULL, shinyalert = F){
         count(Cuadrilla, Parcela, UTM_E, UTM_N, sort = T) %>% 
         filter(n > 1) %>% nrow() %>% .[] >= 1
       ) {
-        if (condition) {
+        if (shinyalert) {
           shinyalert(
             title = "Mismas parcela, diferentes campañas!", 
             html = TRUE,
@@ -203,10 +208,16 @@ check_bd_flora <- function(x, y = NULL, shinyalert = F){
             ),"\n"
           )
         }
+      } else {
+        if (shinyalert) {
+          notify_success("Perfecto!", timeout = 3000, position = "right-bottom")
+        } else {
+          cat("\033[32mPerfecto!","\U0001F601", "No se han encontrado observaciones", "\n")
+        }
       }
     } else {
       # Verificar coordenadas repetidas
-      if (!x %>% count(Parcela, UTM_E, UTM_N) %>% count(Parcela, sort = T) %>% pull(n) %>% all(.==1)) {
+      if (!x %>% count(Parcela, UTM_E, UTM_N) %>% count(Parcela, sort = T) %>% pull(n) %>% all(. == 1)) {
         if (shinyalert) {
           shinyalert(
             title = "Mismas parcela, diferentes coordenadas!", 
@@ -236,6 +247,12 @@ check_bd_flora <- function(x, y = NULL, shinyalert = F){
               collapse = ", "
             ),"\n"
           )
+        }
+      } else {
+        if (shinyalert) {
+          notify_success("Perfecto!", timeout = 3000, position = "right-bottom")
+        } else {
+          cat("\033[32mPerfecto!","\U0001F601", "No se han encontrado observaciones", "\n")
         }
       }
     }

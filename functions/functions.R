@@ -114,7 +114,7 @@ wb_portada_148_default <- function(wb, apendice, nom_proj = NULL, provincia){
     wb_add_font(dims = "B31", bold = T, size = 14) %>% 
     wb_add_cell_style(dims = "B31", horizontal = "center", vertical = "center") %>% 
     wb_merge_cells(dims = wb_dims(rows = 31, cols = 2:5), solve = T) %>% 
-    wb_add_image(dims = "C33",file = "./www/logo_default.png", width = 135.2899, height = 141.7323, units = 'px', dpi = 72) %>%
+    wb_add_image(dims = "C33",file = normalizePath("./www/logo_default.png"), width = 135.2899, height = 141.7323, units = 'px', dpi = 72) %>%
     # Fecha
     wb_add_data(x = str_c(mes,yr, sep = ", "),dims = "C43") %>% 
     wb_add_cell_style(dims = "C43", horizontal = "center", vertical = "center") %>%

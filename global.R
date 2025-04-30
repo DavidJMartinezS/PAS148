@@ -1,5 +1,6 @@
+options(shiny.maxRequestSize = 4000 * 1024 ^ 2, timeout = 600)
 # install.packages("devtools")
-# devtools::install_github("DavidJMartinezS/dataPAS")
+# devtools::install_github("DavidJMartinezS/dataPAS", force = T)
 library(bslib)
 library(bsplus)
 library(dataPAS)
@@ -8,6 +9,7 @@ library(flexlsx)
 library(flextable)
 library(ftExtra)
 library(forcats)
+# library(fresh)
 library(igraph)
 library(janitor)
 # library(leaflet)
@@ -40,11 +42,11 @@ library(units)
 library(writexl)
 library(zip)
 
-options(shiny.maxRequestSize = 3000 * 1024 ^ 2, timeout = 100)
 
 source("./Modules/downfiles.R")
 source("./Modules/leer_sf.R")
 source("./Modules/RCA.R")
+source("./Modules/add_pend_hidro.R")
 source("./functions/Accordion_info.R")
 source("./functions/check_carto.R")
 source("./functions/check_bd.R")
@@ -69,4 +71,5 @@ provincias_list <- read_sf(system.file("Comunas.gdb", package = "dataPAS")) %>%
   mutate(PROVINCIA = setNames(PROVINCIA, REGION)) %>% 
   arrange(CUT_REG) %>% 
   pull(PROVINCIA)
+
   

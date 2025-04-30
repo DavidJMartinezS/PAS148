@@ -38,16 +38,17 @@ downfile <- function(id, x, name_save){
     output$downfile <- downloadHandler(
       filename = function(){
         if(length(filetype()) > 1){
-          "Archivos_comprimidos.zip"
+          paste0("Archivos_comprimidos",".zip")
         } else {
-          paste0(as.character(name_save), if_else(filetype() == "sf", ".shp", ".xlsx"))
+          paste0(as.character(name_save), if_else(filetype() == "sf", ".zip", ".xlsx"))
         }
       },
       content = function(file){
         temp_dir <- tempdir()
         setwd(temp_dir)
+        file.remove(list.files(temp_dir))
         pwalk(
-          if(length(filetype()) == 1) list(list(x), list(filetype()), list(name_save)) else list(x, filetype, name_save),
+          if(length(filetype()) == 1) list(list(x), list(filetype()), list(name_save)) else list(x, filetype(), name_save),
           .f = function(x, y, z) {
             switch(
               y,

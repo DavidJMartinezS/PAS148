@@ -60,6 +60,7 @@ extract2.0 <- function (x, v, fun, opt = "intersect", buffer = 7, progress = TRU
 
 # Funciones para resultados finales 
 get_rod_area <- function(
+    PAS,
     LB, 
     obras, 
     predios, 
@@ -73,53 +74,86 @@ get_rod_area <- function(
     n_rodal_ord = F,
     orden_rodal = "NS-OE"
   ){
-  
-  stopifnot(c("Tipo_fores", "Subtipo_fo", "Tipo_veg") %in% names(LB) %>% all())
+  stopifnot(c("Tipo_fores", "Subtipo_fo", "Tipo_veg", "Regulacion") %in% names(LB) %>% all())
   stopifnot(c("N_Predio", "Nom_Predio") %in% names(predios) %>% all())
-  stopifnot(c("Clase_Uso") %in% names(suelos) %>% all())
+  stopifnot(PAS %in% c(148, 151))
+  if (PAS == 148) {
+    stopifnot(c("Nom_Predio", "Clase_Uso") %in% names(suelos) %>% all())
+    var_suelo <- sym("Clase_Uso")
+  } 
+  if (PAS == 151) {
+    stopifnot(c("Clase_Eros") %in% names(suelos) %>% all())
+    var_suelo <- sym("Clase_Eros")
+  } 
+  
+  if (cut_by_prov) {
+    stopifnot(provincia %in% unlist(provincias_list))
+    provincia_sf <- read_sf(system.file("Comunas.gdb", package = "dataPAS")) %>% 
+      filter(PROVINCIA == provincia) %>% 
+      st_transform(st_crs(predios))
+    obras <- obras %>% st_intersection(st_union(st_combine(provincia_sf))) %>% st_collection_extract("POLYGON")
+    suelos <- suelos %>% st_intersection(st_union(st_combine(provincia_sf))) %>% st_collection_extract("POLYGON")
+    LB <- LB[provincia_sf, ]
+    predios <- predios[provincia_sf, ]
+  } %>% suppressWarnings()
   
   group_list <- c("N_Predio", "Nom_Predio", "Tipo_fores") %>% 
     {if (!is.null(group_by_LB)) c(., group_by_LB) %>% unique() else .} %>% 
     syms()
   
   areas <- LB %>%
+    {if (PAS == 148){
+      .[] %>% filter(Regulacion %>% str_squish() %>% stri_cmp_equiv("bosque nativo", strength = 1))
+    } else {
+      .[] %>% filter(Regulacion %>% str_squish() %>% stri_cmp_equiv("formacion xerofitica", strength = 1))
+    }} %>% 
     st_intersection(st_union(st_combine(obras))) %>% 
     st_collection_extract("POLYGON") %>%
+    st_make_valid() %>%
+    st_collection_extract("POLYGON") %>%
+    my_union(predios %>% select(N_Predio, Nom_Predio)) %>% 
+    st_collection_extract("POLYGON") %>%
     st_cast("POLYGON") %>% 
-    {if(cut_by_prov) .[] %>% st_intersection(st_union(st_combine(provincia))) %>% st_collection_extract("POLYGON") %>% st_cast("POLYGON") else .} %>% 
-    filter(!st_area(geometry) %>% drop_units() %>% round_half_up() == 0)
+    st_make_valid() %>% 
+    st_collection_extract("POLYGON") %>%
+    filter(!st_area(geometry) %>% drop_units() %>% round_half_up() == 0) %>% 
+    suppressWarnings()
   
   Rodales <- LB %>% 
-    st_filter(areas, .predicate = st_intersects) %>% 
+    {if (PAS == 148){
+      .[] %>% filter(Regulacion %>% str_squish() %>% stri_cmp_equiv("bosque nativo", strength = 1))
+    } else {
+      .[] %>% filter(Regulacion %>% str_squish() %>% stri_cmp_equiv("formacion xerofitica", strength = 1))
+    }} %>% 
+    st_filter(areas, .predicate = st_relate, pattern = "T********") %>% 
     {if (is.null(group_by_LB) & !("PID" %in% names(.))) rowid_to_column(., "PID") else .} %>% 
-    filter(str_to_sentence(str_trim(Regulacion)) == "Bosque nativo") %>% 
-    # {if(cut_by_prov) st_filter(., provincia, .predicate = st_intersects) else .} %>% 
-    {if(n_rodal_ord) .[] %>% mutate(N_Rodal = st_order(geometry)) else .} %>%
-    my_union(predios) %>% 
+    {if (n_rodal_ord) mutate(., N_Rodal = st_order(geometry, order = orden_rodal)) else .} %>%
+    my_union(predios %>% select(N_Predio, Nom_Predio)) %>% 
     st_collection_extract("POLYGON") %>%
-    {if(is.null(group_by_LB)){
+    {if (is.null(group_by_LB)){
       .[] %>% 
-        group_by(., PID, N_Predio, Nom_Predio, Tipo_fores, Subtipo_fo, Tipo_veg) %>% 
+        group_by(., PID, Regulacion, N_Predio, Nom_Predio, Tipo_fores, Subtipo_fo, Tipo_veg) %>% 
         summarise(geometry = st_union(geometry)) %>% 
         ungroup() %>% 
         st_collection_extract("POLYGON")
     } else {
       .[] %>% 
-        group_by(!!!group_list) %>% 
+        group_by(Regulacion, !!!group_list) %>% 
         summarise(geometry = st_union(geometry)) %>%
         ungroup() %>% 
         st_collection_extract("POLYGON") %>%
         st_cast("POLYGON") %>% 
         rowid_to_column("PID") %>% 
-        {if(!c("Subtipo_fo", "Tipo_veg") %in% group_list %>% all()){
+        {if (!c("Subtipo_fo", "Tipo_veg") %in% group_list %>% all()){
           .[] %>% 
             st_join(LB %>% select(c("Subtipo_fo", "Tipo_veg")[!c("Subtipo_fo", "Tipo_veg") %in% group_list]), largest = T)
         } else .}
     }} %>% 
-    {if("N_Rodal" %in% names(.)) . else .[] %>% group_by(PID) %>% mutate(N_Rodal = as.integer(cur_group_id())) %>% ungroup()} %>% 
+    {if ("N_Rodal" %in% names(.)) . else .[] %>% group_by(PID) %>% mutate(N_Rodal = as.integer(cur_group_id())) %>% ungroup()} %>% 
     mutate(
-      Tipo_Bos = "BN",
+      Tipo_Bos = if_else(PAS == 148, "BN", "No aplica"),
       Tipo_For = case_when(
+        Tipo_fores %>% stri_detect_regex("no.*aplica", case_insensitive = T) ~ "No aplica",
         Tipo_fores %>% stri_detect_regex("alerce", case_insensitive = T) ~ "1",
         Tipo_fores %>% stri_detect_regex("araucaria", case_insensitive = T) ~ "2",
         Tipo_fores %>% stri_detect_regex("cordillera", case_insensitive = T) ~ "3",
@@ -136,29 +170,42 @@ get_rod_area <- function(
       ),
       Sup_ha = st_area(geometry) %>% set_units(ha) %>% round(2) %>% drop_units()
     ) %>% 
-    mutate_at("Tipo_For", as.numeric) %>% 
-    mutate_at(vars(Nom_Predio), replace_na, "S/I") %>% 
     arrange(N_Rodal) %>% 
-    select(N_Predio, Nom_Predio, PID, N_Rodal, Tipo_Bos, Tipo_For, Tipo_fores, Subtipo_fo, Tipo_veg, Sup_ha)  
+    mutate_at(vars(Nom_Predio), replace_na, "S/I") %>% 
+    select(N_Predio, Nom_Predio, PID, N_Rodal, Tipo_Bos, Tipo_For, Tipo_fores, Subtipo_fo, Tipo_veg, Regulacion, Sup_ha) %>% 
+    suppressMessages() %>% suppressWarnings()
   
-  if (any(Rodales$Sup_ha < 0.5)) {
+  if (any(Rodales %>% group_by(N_Rodal) %>% summarise_at("Sup_ha", sum) %>% .$Sup_ha < 0.5) & PAS == 148) {
     warning(
       str_c(
-        "Los siguientes rodales presentan una superficie inferior a 0,5 ha:","\n",
-        Rodales[which(Rodales$Sup_ha < 0.5),]$N_Rodal %>% shQuote() %>% str_c(collapse = ", ")
+        "Los siguientes rodales de BN presentan una superficie inferior a 0,5 ha:\n",
+        Rodales %>% group_by(N_Rodal) %>% summarise_at("Sup_ha", sum) %>% 
+          filter(Sup_ha < 0.5) %>% pull(N_Rodal) %>% 
+          shQuote() %>% str_c(collapse = ", ")
+      )
+    )
+  }
+  if (any(Rodales %>% group_by(N_Rodal) %>% summarise_at("Sup_ha", sum) %>% .$Sup_ha < 1) & PAS == 151) {
+    warning(
+      str_c(
+        "Los siguientes rodales de FX presentan una superficie inferior a 1 ha:\n",
+        Rodales %>% group_by(N_Rodal) %>% summarise_at("Sup_ha", sum) %>% 
+          filter(Sup_ha < 1) %>% pull(N_Rodal) %>% 
+          shQuote() %>% str_c(collapse = ", ")
       )
     )
   }
   
-  BN_areas <- Rodales %>%
-    # st_intersection(st_union(st_combine(obras))) %>% 
+  BN_areas <- areas %>%
+    st_join(Rodales %>% select(N_Rodal, Tipo_For), largest = T) %>%
+    # st_intersection(st_union(st_combine(obras))) %>%
     # st_collection_extract("POLYGON") %>%
-    # st_cast("POLYGON") %>% 
+    # st_cast("POLYGON") %>%
     # {if(cut_by_prov) .[] %>% st_intersection(st_union(st_combine(provincia))) %>% st_collection_extract("POLYGON") %>% st_cast("POLYGON") else .} %>% 
     # filter(!st_area(geometry) %>% drop_units() %>% round_half_up() == 0) %>% 
     mutate(N_Pred_ori = N_Predio) %>% 
     mutate_at("N_Predio", as.character) %>%
-    mutate(N_Predio = replace_na(N_Predio, "S/I")) %>%
+    mutate_at(vars(N_Predio, Nom_Predio), replace_na, "S/I") %>% 
     group_by(N_Pred_ori) %>% 
     mutate(N_Predio2 = cur_group_id()) %>% 
     ungroup() %>% 
@@ -169,24 +216,24 @@ get_rod_area <- function(
     arrange(N_Predio) %>% 
     {if (sep_by_CUS) {
       .[] %>% 
-        my_union(suelos %>% select(Clase_Uso)) %>%
+        my_union(suelos %>% select(!!var_suelo)) %>%
         st_collection_extract("POLYGON") %>%
         st_cast("POLYGON") %>% 
         st_make_valid() %>% 
         st_collection_extract("POLYGON")
     } else {
       .[] %>% 
-        st_join(suelos %>% select(Clase_Uso)) %>% 
-        group_by(N_Rodal, !!!group_list, N_Pred_ori, N_Predio, Nom_Predio, geometry) %>% 
-        summarise(Clase_Uso = str_c(unique(Clase_Uso), collapse = " - ")) %>% 
+        st_join(suelos %>% select(!!var_suelo)) %>% 
+        group_by(N_Rodal, !!!group_list, N_Pred_ori, geometry) %>% 
+        summarise(var_suelo = str_c(unique(!!var_suelo), collapse = " - ")) %>% 
         ungroup() 
     }} %>% 
-    mutate(Clase_Uso = replace_na(Clase_Uso, "S/I")) %>% 
+    mutate_at(vars(!!var_suelo), replace_na, "S/I") %>% 
     {if (group_by_dist) {
       .[] %>% 
-        group_by(N_Rodal, N_Predio, Clase_Uso) %>% 
+        group_by(N_Rodal, N_Predio, !!var_suelo) %>% 
         mutate(group = group_by_distance(geometry, distance = distance_max)) %>% 
-        group_by(N_Rodal, !!!group_list, Tipo_For, N_Pred_ori, Clase_Uso, group) %>% 
+        group_by(N_Rodal, !!!group_list, Tipo_For, Tipo_veg, N_Pred_ori, !!var_suelo, group) %>% 
         summarise(geometry = st_union(geometry)) %>% 
         st_collection_extract("POLYGON") %>% 
         ungroup()
@@ -204,7 +251,8 @@ get_rod_area <- function(
       Tipo_Bos = "BN",
       N_a = str_c(N_Predio, str_pad(N_r, str_length(max(N_r)), pad = "0"), sep = ".")
     ) %>% 
-    select(!!!group_list, Tipo_For, Tipo_Bos, N_Rodal, N_a, N_Area, N_Pred_ori, Clase_Uso, Sup_ha, Sup_m2) 
+    select(!!!group_list, Tipo_For, Tipo_veg, Tipo_Bos, N_Rodal, N_a, N_Area, N_Pred_ori, !!var_suelo, Sup_ha, Sup_m2) %>% 
+    suppressWarnings()
   
   Predios <- predios %>%
     filter(N_Predio %in% unique(BN_areas$N_Pred_ori)) %>% 
@@ -214,7 +262,22 @@ get_rod_area <- function(
     select(-N_Predio) %>% 
     rename(N_Predio = N_Predio2) %>% 
     arrange(N_Predio) %>% 
-    select(N_Predio, Nom_Predio, Rol, Propietari)
+    mutate_at(vars(Nom_Predio, Rol, Propietari), replace_na, "S/I") %>% 
+    select(N_Predio, Nom_Predio, Rol, Propietari) %>% 
+    suppressWarnings()
+  
+  if (nrow(Rodales %>% count(N_Rodal)) > nrow(Rodales %>% count(N_Rodal) %>% .[BN_areas, ])) {
+    warning(
+      str_c(
+        "Los siguientes rodales sobran:\n",
+        setdiff(
+          Rodales %>% count(N_Rodal) %>% .$N_Rodal,
+          Rodales %>% count(N_Rodal) %>% .[BN_areas, ] %>% .$N_Rodal
+        ) %>% 
+          shQuote() %>% str_c(collapse = ", ")
+      )
+    )
+  }
   
   return(
     list(
@@ -225,7 +288,7 @@ get_rod_area <- function(
   )
 }
 
-cart_rodales <- function(rodales, PAS, TipoFor_num = T, dec_sup = 2){
+cart_rodales <- function(rodales, PAS, TipoFor_num = NULL, dec_sup = 2){
   stopifnot(c("Nom_Predio", "Tipo_For") %in% names(rodales) %>% all())
   stopifnot(PAS %in% c(148, 151))
   
@@ -291,8 +354,17 @@ cart_area <- function(areas, PAS, dec_sup = 2, from_RCA = F, RCA = NULL){
     select(Nom_Predio, N_Area, Tipo_Bos, Sup_ha, Fuente)
 }
 
-cart_suelos <- function(areas, dec_sup = 2, from_RCA = F, RCA = NULL){
-  stopifnot(c("Nom_Predio", "Clase_Uso") %in% names(areas) %>% all())
+cart_suelos <- function(areas, PAS, dec_sup = 2, from_RCA = F, RCA = NULL){
+  stopifnot(PAS %in% c(148, 151))
+  if (PAS == 148) {
+    stopifnot(c("Nom_Predio", "Clase_Uso") %in% names(areas) %>% all())
+    var_suelo <- syms("Clase_Uso")
+  } 
+  if (PAS == 151) {
+    stopifnot(c("Nom_Predio", "Clase_Eros") %in% names(areas) %>% all())
+    var_suelo <- syms(c("Cat_Erosio","Clase_Eros"))
+  } 
+  
   fuente <- if_else(
     !from_RCA, 
     "Elaboración propia",
@@ -307,20 +379,34 @@ cart_suelos <- function(areas, dec_sup = 2, from_RCA = F, RCA = NULL){
       Sup_ha = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup),
       Fuente = fuente
     ) %>% 
-    select(Nom_Predio, Clase_Uso, Sup_ha, Fuente)
+    {if (PAS == 151) {
+      mutate(.,
+        Cat_Erosio = case_when(
+          Clase_Eros %>% stri_detect_regex("moderada", case_insensitive = T) ~ "1",
+          Clase_Eros %>% stri_detect_regex("muy severa", case_insensitive = T) ~ "3",
+          Clase_Eros %>% stri_detect_regex("severa", case_insensitive = T) ~ "2",
+          .default = "4"
+        )
+      ) 
+    } else . } %>% 
+    select(Nom_Predio, !!!var_suelo, Sup_ha, Fuente)
 }
 
-cart_rang_pend <- function(areas, dem, PAS, dec_sup = 2, opt = "intersect", buffer = 7){
+cart_rang_pend <- function(PAS, areas, dem, dec_sup = 2, opt = "intersect", buffer = 7){
   stopifnot(c("Nom_Predio") %in% names(areas) %>% all())
   stopifnot(opt %in% c("intersect", "bbox", "buffer"))
   stopifnot(PAS %in% c(148, 151))
+  stopifnot("DEM debe ser un objeto star o bien la ruta del archivo" = (class(dem) %in% c("character", "stars")) %>% any())
+  if (class(dem) == "character") {
+    stopifnot("ruta del archivo no encontrada" = file.exists(dem))
+  }
 
-  slope_per <- dem %>%
+  slope_per <- if ("stars" %in% class(dem)) dem else read_stars(dem) %>% 
     `st_crs<-`(st_crs(areas)) %>%
     st_crop(areas %>% st_buffer(50)) %>%
     st_as_stars() %>%
     starsExtra::slope() %>%
-    {\(x) tan(x*pi/180)*100}() %>%
+    {\(x) tan(x * pi / 180) * 100}() %>%
     extract2.0(v = areas, mean, na.rm = T, opt = opt, buffer = buffer) %>% round_half_up(1)
 
   areas %>%
@@ -336,18 +422,20 @@ cart_rang_pend <- function(areas, dem, PAS, dec_sup = 2, opt = "intersect", buff
             Pend_media >= 0 & Pend_media < 30 ~ "0% - 30%",
             Pend_media >= 30 & Pend_media < 45 ~ "30% - 45%",
             Pend_media >= 45 & Pend_media < 60 ~ "45% - 60%",
-            Pend_media >= 60  ~ "60% y más"
+            Pend_media >= 60  ~ "60% y más",
+            .default = as.character(Pend_media)
           )
         )
     } else if(PAS == 151){
       .[] %>%
         mutate(
-          Ran_pend = case_when(
+          Ran_Pend = case_when(
             Pend_media >= 0 & Pend_media < 10 ~ "0% - 10%",
             Pend_media >= 10 & Pend_media < 30 ~ "10% - 30%",
             Pend_media >= 30 & Pend_media < 45 ~ "30% - 45%",
             Pend_media >= 45 & Pend_media < 60 ~ "45% - 60%",
-            Pend_media >= 60  ~ "60% y más"
+            Pend_media >= 60  ~ "60% y más",
+            .default = as.character(Pend_media)
           )
         )
     }} %>%
@@ -364,20 +452,28 @@ cart_predios <- function(predios, dec_sup = 2){
     select(Nom_Predio, Rol, Propietari, Sup_ha)
 }
 
-cart_parcelas <- function(bd_parcelas, rodales){
-  stopifnot(c("Parcela", "UTM_E", "UTM_E", "N_ind") %in% names(bd_parcelas) %>% all())
+cart_parcelas <- function(bd_flora, rodales, PAS){
+  stopifnot(c("Parcela", "UTM_E", "UTM_E", "N_ind", "Habito", "Cob_BB", "DS_68") %in% names(bd_flora) %>% all())
   stopifnot(c("Nom_Predio", "N_Rodal") %in% names(rodales) %>% all())
+  stopifnot(PAS %in% c(148, 151))
   
-  bd_parcelas %>% 
+  bd_flora %>% 
     mutate_at("N_ind", as.integer) %>% 
-    filter(
-      Habito %>% stri_trans_general("Latin-ASCII") %>% stri_detect_regex("arbol", case_insensitive = T),
-      !Cob_BB %>% str_to_lower() %in% c(NA_character_, "fp", "---"),
-      !N_ind %in% c(NA, 0)
-    ) %>% 
-    select(-matches("Nom_Predio|N_Rodal|Tipo_veg|Tipo_For|Subtipo_fo")) %>% 
+    {if (PAS == 148) {
+      filter(.,
+        Habito %>% stri_trans_general("Latin-ASCII") %>% stri_detect_regex("arbol", case_insensitive = T),
+        !Cob_BB %>% str_to_lower() %in% c(NA_character_, "fp", "---"),
+        !N_ind %in% c(NA, 0)
+      )
+    } else {
+      filter(.,
+        DS_68 %>% stri_cmp_equiv("originaria", strength = 1),
+        !Cob_BB %>% str_to_lower() %in% c(NA_character_, "fp", "---"),
+        !N_ind %in% c(NA, 0)
+      )
+    }} %>% 
     st_as_sf(coords = c("UTM_E","UTM_N"), crs = st_crs(rodales), remove = F) %>%
-    st_join(rodales %>% select(Nom_Predio, N_Rodal, Tipo_For, Subtipo_fo, Tipo_veg)) %>% 
+    st_join(rodales %>% select(Nom_Predio, N_Rodal)) %>% 
     mutate_at("N_Rodal", as.integer) %>% 
     st_drop_geometry() %>% 
     mutate_at("N_ind", as.integer) %>% 
@@ -393,15 +489,14 @@ cart_parcelas <- function(bd_parcelas, rodales){
     mutate(Fuente = "Elaboracion propia") %>% 
     st_as_sf(coords = c("UTM_E","UTM_N"), crs = st_crs(rodales), remove = F) %>% 
     rename(Coord_X = UTM_E, Coord_Y = UTM_N) %>% 
-    mutate_at(vars(starts_with("Coord")), round_half_up) %>% 
-    mutate_at(vars(starts_with("Coord")), as.integer) %>% 
+    mutate_at(vars(starts_with("Coord")), ~as.integer(round_half_up(.))) %>% 
     arrange(N_Parc) %>% 
     select(Nom_Predio, N_Rodal, N_Parc, Coord_X, Coord_Y, Fuente)
 }
 
 cart_uso_actual <- function(catastro, predios, suelos, dec_sup = 2){
   stopifnot(c("USO", "SUBUSO", "ESTRUCTURA") %in% names(catastro) %>% all())
-  stopifnot(c("TEXTCAUS") %in% names(suelos))
+  stopifnot(c("Clase_Uso") %in% names(suelos))
   stopifnot(c("Nom_Predio") %in% names(predios))
   
   catastro %>%
@@ -409,11 +504,11 @@ cart_uso_actual <- function(catastro, predios, suelos, dec_sup = 2){
     st_collection_extract("POLYGON") %>%
     st_make_valid() %>%
     st_collection_extract("POLYGON") %>%
-    my_union(suelos %>% select(TEXTCAUS)) %>%
+    my_union(suelos %>% select(Clase_Uso)) %>%
     st_collection_extract("POLYGON") %>%
     st_make_valid() %>%
     st_collection_extract("POLYGON") %>%
-    select(USO, SUBUSO, ESTRUCTURA, TEXTCAUS, Nom_Predio) %>%
+    select(USO, SUBUSO, ESTRUCTURA, Clase_Uso, Nom_Predio) %>%
     st_make_valid() %>%
     st_collection_extract("POLYGON") %>% 
     mutate(
@@ -421,9 +516,9 @@ cart_uso_actual <- function(catastro, predios, suelos, dec_sup = 2){
         SUBUSO == "Bosque Nativo" ~ paste(SUBUSO, ESTRUCTURA),
         SUBUSO == "Bosque Mixto" ~ SUBUSO,
         SUBUSO == "Plantación" ~ paste(SUBUSO, "(Otros usos)"),
-        USO == "Terrenos Agrícolas" & TEXTCAUS %in% c("I", "II", "III", "IV") ~ "Uso agrícola y/o Ganadero (I-IV)",
-        USO == "Terrenos Agrícolas" & TEXTCAUS %in% c("V", "VI", "VII", "VIII") ~ "Uso agrícola y/o Ganadero (V-VIII)",
-        (USO == "Terrenos Agrícolas" & (is.na(TEXTCAUS) | TEXTCAUS == "N.C.")) ~ "Uso agrícola y/o Ganadero (N.C.)",
+        USO == "Terrenos Agrícolas" & Clase_Uso %in% c("I", "II", "III", "IV") ~ "Uso agrícola y/o Ganadero (I-IV)",
+        USO == "Terrenos Agrícolas" & Clase_Uso %in% c("V", "VI", "VII", "VIII") ~ "Uso agrícola y/o Ganadero (V-VIII)",
+        (USO == "Terrenos Agrícolas" & (is.na(Clase_Uso) | Clase_Uso == "N.C.")) ~ "Uso agrícola y/o Ganadero (N.C.)",
         USO == "Áreas Desprovistas de Vegetación" ~ "Áreas sin vegetación",
         .default = paste(USO, "(Otros usos)")
       ),
@@ -768,6 +863,10 @@ cart_caminos_osm <- function(predios, cut = "clip", buffer = 0){
 
 cart_curv_niv <- function(predios, dem, cut = "clip", buffer = 0, step = 10){
   stopifnot(c("Nom_Predio") %in% names(predios) %>% all())
+  stopifnot("DEM debe ser un objeto star o bien la ruta del archivo" = (class(dem) %in% c("character", "stars")) %>% any())
+  if (class(dem) == "character") {
+    stopifnot("ruta del archivo no encontrada" = file.exists(dem))
+  }
   stopifnot(cut %in% c("clip", "buffer", "crop", "crop_by_row"))
   stopifnot("buffer must be a number" = is.numeric(buffer))
   stopifnot("step must be a number greater than or equal to 10" = is.numeric(step) & (step >= 10))
@@ -784,7 +883,7 @@ cart_curv_niv <- function(predios, dem, cut = "clip", buffer = 0, step = 10){
       st_set_crs(dm$y$refsys)
   }
   
-  dem_predio <- dem %>% 
+  dem_predio <- if ("stars" %in% class(dem)) dem else read_stars(dem) %>% 
     `st_crs<-`(st_crs(predios)) %>% 
     .[st_bbox(predios %>% st_buffer(buffer)) %>% st_as_sfc()]  %>% 
     st_as_stars(crs = st_crs(predios)) %>% 
@@ -834,7 +933,7 @@ get_carto_digital <- function(
     predios,
     dem,
     add_parcelas = F,
-    bd_parcelas = NULL,
+    bd_flora = NULL,
     from_RCA = F,
     RCA = NULL,
     add_uso_actual = F,
@@ -852,10 +951,19 @@ get_carto_digital <- function(
     step = 10,
     dec_sup = 2
   ){
-  stopifnot(c("Nom_Predio", "Tipo_fores", "Tipo_For", "Subtipo_fo", "Tipo_veg") %in% names(rodales) %>% all())
+  stopifnot(c("Nom_Predio", "Tipo_fores", "Tipo_For", "Tipo_veg") %in% names(rodales) %>% all())
   stopifnot(PAS %in% c(148, 151))
+  if (PAS == 148) {
+    var_suelo <- syms("Clase_Uso")
+  } else {
+    var_suelo <- syms(c("Clase_Eros", "Cat_Erosio"))
+  }
   stopifnot("Sobran rodales" = nrow(rodales %>% count(N_Rodal)) == nrow(rodales %>% count(N_Rodal) %>% .[areas, ]))
   stopifnot("Sobran predios" = nrow(predios) == nrow(predios[areas, ]))
+  stopifnot("DEM debe ser un objeto star o bien la ruta del archivo" = (class(dem) %in% c("character", "stars")) %>% any())
+  if (class(dem) == "character") {
+    stopifnot("ruta del archivo no encontrada" = file.exists(dem))
+  }
   
   comunas <- read_sf(
     system.file("Comunas.gdb", package = "dataPAS"),
@@ -867,18 +975,18 @@ get_carto_digital <- function(
 
   carto_area <- cart_area(areas, PAS, dec_sup, from_RCA, RCA)
 
-  carto_suelos <- cart_suelos(areas, dec_sup, from_RCA, RCA)
+  carto_suelos <- cart_suelos(areas, PAS, dec_sup, from_RCA, RCA)
 
-  carto_ran_pend <- cart_rang_pend(areas, dem, PAS, dec_sup, opt = "intersect", buffer = 7)
+  carto_ran_pend <- cart_rang_pend(PAS, areas, dem, dec_sup, opt = "intersect", buffer = 7)
   
   carto_predios <- cart_predios(predios, dec_sup)
   
   if (add_parcelas) {
-    stopifnot(!is.null(bd_parcelas))
-    carto_parcelas <- cart_parcelas(bd_parcelas, carto_rodales)
+    stopifnot(!is.null(bd_flora))
+    carto_parcelas <- cart_parcelas(bd_flora = bd_flora, rodales = rodales, PAS)
   }
   if (add_uso_actual) {
-    stopifnot(!is.null(catastro) &  !is.null(suelos))
+    stopifnot(!is.null(catastro) & !is.null(suelos))
     carto_uso_actual <- cart_uso_actual(catastro, predios, suelos, dec_sup)
   }
   if (add_caminos) {
@@ -915,6 +1023,7 @@ get_carto_digital <- function(
       Sup_ind = st_area(geometry) %>% set_units(ha) %>% drop_units() %>% round_half_up(dec_sup),
       Sup_prop = map2_dbl(Sup_ind, Sup_ha, ~round_half_up((.x/.y)*100, dec_sup))
     ) %>% 
+    st_drop_geometry() %>% 
     filter(Sup_prop > 10) %>% 
     group_by(N_Predio, Nom_Predio, Rol, Propietari, Sup_ha) %>% 
     summarise(
@@ -923,7 +1032,6 @@ get_carto_digital <- function(
       Región = str_c(unique(REGION), collapse = " - "),
       .groups = "drop"
     ) %>% 
-    st_drop_geometry() %>% 
     mutate_at(vars(Nom_Predio, Propietari), replace_na, "S/I") %>% 
     mutate_at(vars(Rol), replace_na, "S/R") %>% 
     arrange(N_Predio)
@@ -934,30 +1042,31 @@ get_carto_digital <- function(
     st_join(predios %>% select(N_Predio), largest = T) %>% 
     st_join(carto_rodales %>% select(N_Rodal), largest = T) %>% 
     st_join(carto_ran_pend %>% select(Pend_media, Ran_Pend), join = st_equals) %>% 
-    st_join(carto_suelos %>% select(Clase_Uso), join = st_equals) %>% 
-    mutate(
-      Tipo_Dren    = carto_hidro[st_nearest_feature(carto_area, st_geometry(carto_hidro)),]$Tip_Dren,
-      Tipo_Perma   = carto_hidro[st_nearest_feature(carto_area, st_geometry(carto_hidro)),]$Tipo_Perma,
-      Nombre_curso = carto_hidro[st_nearest_feature(carto_area, st_geometry(carto_hidro)),]$Etiqueta,
-      Distancia    = c(1:nrow(carto_area)) %>%
-        map_dbl(function(x) {
-          st_distance(carto_area[x,], carto_hidro[st_nearest_feature(carto_area[x,], st_geometry(carto_hidro)),]) %>% drop_units() %>% round_half_up()
-        })
-    ) %>% 
-    st_drop_geometry() %>% 
-    mutate(
-      Nombre_curso = case_when(Tipo_Dren == 4 & is.na(Nombre_curso) ~ "Quebrada sin nombre", .default = Nombre_curso),
-      Tipo_Perma   = case_when(Tipo_Perma == 2 ~ "Temporal", T ~ "Permanente")
-    ) %>% 
+    st_join(carto_suelos %>% select(!!!var_suelo), join = st_equals) %>% 
+    {if(exists("carto_hidro")){
+      mutate(.,
+        Tipo_Dren    = carto_hidro[st_nearest_feature(carto_area, st_geometry(carto_hidro)),]$Tip_Dren,
+        Tipo_Perma   = carto_hidro[st_nearest_feature(carto_area, st_geometry(carto_hidro)),]$Tipo_Perma,
+        Nombre_curso = carto_hidro[st_nearest_feature(carto_area, st_geometry(carto_hidro)),]$Etiqueta,
+        Distancia    = c(1:nrow(carto_area)) %>%
+          map_dbl(function(x) {
+            st_distance(carto_area[x,], carto_hidro[st_nearest_feature(carto_area[x,], st_geometry(carto_hidro)),]) %>% drop_units() %>% round_half_up()
+          })
+      ) %>% 
+        st_drop_geometry() %>% 
+        mutate(
+          Nombre_curso = case_when(Tipo_Dren == 4 & is.na(Nombre_curso) ~ "Quebrada sin nombre", .default = Nombre_curso),
+          Tipo_Perma   = case_when(Tipo_Perma == 2 ~ "Temporal", T ~ "Permanente")
+        ) 
+    } else st_drop_geometry(.)} %>% 
     arrange(N_Predio, N_Area)
     
-
   return(
     list(
       Areas = carto_area,
       Rodales = carto_rodales,
       Predios = carto_predios %>% select(-Propietari),
-      Suelos = carto_suelos,
+      Suelos = carto_suelos %>% {if(PAS == 151) select(.,-Clase_Eros) else .} ,
       Ran_pend = carto_ran_pend %>% select(-Pend_media),
       tabla_predios = tabla_predios,
       tabla_areas = tabla_areas,
@@ -969,7 +1078,17 @@ get_carto_digital <- function(
       Hidrografia_osm = if(add_hidro_osm) carto_hidro_osm,
       Curvas_nivel = if(add_curv_niv) carto_curv_niv
     ) %>% 
-      subset(c(rep(T, 7), add_parcelas, add_uso_actual, add_caminos, add_caminos_osm, add_hidro, add_hidro_osm, add_curv_niv))
+      subset(
+        c(rep(T, 7), 
+          add_parcelas, 
+          add_uso_actual, 
+          add_caminos, 
+          if(add_caminos == F) F else add_caminos_osm, 
+          add_hidro, 
+          if(add_hidro == F) F else add_hidro_osm,  
+          add_curv_niv
+        )
+      )
   )
 }
 
