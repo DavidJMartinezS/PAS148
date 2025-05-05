@@ -423,7 +423,7 @@ shinyUI(
                 solidHeader = T,
                 status = "success",
                 # GET APÉNDICES
-                div(style = "margin-top: -10x"),
+                div(style = "margin-bottom: -10x"),
                 h3("Apéndices", style = "font-weight: bold;"),
                 div(
                   id = "inline",
@@ -478,19 +478,7 @@ shinyUI(
                 leer_sfUI("obras_ap5", "Ingresar obras (opcional)") %>% 
                   add_help_text(title = "Campos minimos requeridos:\n'Tipo', 'Obra'"),
                 div(style = "margin-top: -5px"),
-                div(
-                  fileInput(
-                    inputId = "bd_fauna",
-                    label = "Ingresar BD de fauna (opcional)",
-                    multiple = F,
-                    accept = c(".xlsx"),
-                    buttonLabel = "Seleccionar",
-                    placeholder = "Archivo no seleccionado"
-                  ) %>% 
-                    add_help_text(
-                      title = "Campos minimos requeridos:\n'Nombre_cientifico', 'UTM_E', 'UTM_N', 'Categoria', 'Decreto'"
-                    )
-                ),
+                uiOutput("bd_fauna_ui"),
                 div(style = "margin-top: -10px"),
                 div(
                   id = "flex",
