@@ -41,13 +41,38 @@ italic_sp <- function(x){
     }
   })
 }
-nha_x_sp_fun <- function(parcelas, bd){
+nha_x_sp_fun <- function(parcelas, bd, add_var = NULL){
   bd %>% 
     select(N_Parc, Especie, Nha) %>% 
     filter(N_Parc %in% parcelas) %>% 
     complete(N_Parc, Especie, fill = list(Nha = 0)) %>% 
-    group_by(Especie) %>% 
-    summarise(Nha = mean(Nha,na.rm = T))
+    left_join(bd %>% count(Especie, across(add_var)) %>% select(-n)) %>% 
+    group_by(Especie, across(add_var)) %>% 
+    summarise(Nha = mean(Nha,na.rm = T) %>% round_half_up(), .groups = "drop") %>% 
+    mutate_at("Nha", as.integer) %>% 
+    suppressMessages() %>% suppressWarnings()
+}
+cob_x_sp_fun <- function(parcelas, bd_flora){
+  bd_flora %>% 
+    select(N_Parc, Especie, Habito, Cob_BB) %>% 
+    filter(N_Parc %in% parcelas) %>% 
+    mutate(
+      Cob_ind = case_match(
+        Cob_BB,
+        "r" ~ "1",
+        "+" ~ "3",
+        "1" ~ "<5",
+        "2" ~ "7.5",
+        "3" ~ "10-25",
+        "4" ~ "25-50",
+        "5" ~ "50-75",
+        "6" ~ "75-100",
+        .default = ""
+      )
+    ) %>% 
+    group_by(Especie, Habito) %>% 
+    summarise(Cob_ind = str_c(unique(Cob_ind), collapse = "; "), .groups = "drop") %>% 
+    suppressMessages() %>% suppressWarnings()
 }
 
 # Funciones apéndices
@@ -418,7 +443,7 @@ apendice_5_PAS148 <- function(
       bg(bg = "#bcc5d4", part = "header")
   }
   
-  estimaciones_x_tipo <- bd_flora %>% 
+  nha_est_x_tipo <- bd_flora %>% 
     select(Tipo_veg, N_Parc, Especie, Nha) %>% 
     split(.$Tipo_veg) %>%
     map(~complete(.,Tipo_veg, N_Parc, Especie, fill = list(Nha = 0))) %>% 
@@ -445,7 +470,7 @@ apendice_5_PAS148 <- function(
         select(N_Rodal, Tipo_veg, Tipo_attr)
     ) %>% 
     filter(Tipo_attr == "Estimación") %>%  
-    left_join(estimaciones_x_tipo) %>% 
+    left_join(nha_est_x_tipo) %>% 
     drop_na(Nha) %>% 
     select(N_Predio, N_Area, Especie, Nha)
   
@@ -583,17 +608,17 @@ apendice_5_PAS148 <- function(
       ) %>% 
       st_drop_geometry() %>% 
       janitor::adorn_totals() %>% 
-      `names<-`(c("Tipo de obra", "Obra", "Superficie (ha)", "Superficie (m2)")) %>% 
+      `names<-`(c("Temporalidad de la obra", "Obra", "Superficie (ha)", "Superficie (m2)")) %>% 
       flextable() %>% 
       flextable::separate_header(split = "_") %>%
       autofit() %>% 
       merge_v(j = c(1)) %>% 
-      merge_h_range(i = ~ `Tipo de obra` == "Total", j1 = "Tipo de obra", j2 = "Obra", part = "body") %>% 
+      merge_h_range(i = ~ `Temporalidad de la obra` == "Total", j1 = "Temporalidad de la obra", j2 = "Obra", part = "body") %>% 
       theme_box() %>% 
       colformat_md() %>% 
       valign(part = "header", valign = "center") %>% 
       align(part = "header", align = "center") %>% 
-      align(i = ~ `Tipo de obra` == "Total", align = "center", j = c(1:2), part = "body") %>% 
+      align(i = ~ `Temporalidad de la obra` == "Total", align = "center", j = c(1:2), part = "body") %>% 
       bg(bg = "#bcc5d4", part = "header")
   }
   
@@ -694,7 +719,7 @@ apendice_5_PAS148 <- function(
   if (exists("tbl_13")) {
     wb <- wb %>% 
       wb_add_worksheet("BD_Fauna") %>% 
-      wb_add_data(sheet = "Estadisticos", x = tbl_13, start_col = 1, start_row = 1) %>% 
+      wb_add_data(sheet = "BD_Fauna", x = tbl_13, start_col = 1, start_row = 1) %>% 
       wb_set_cell_style(dims = wb_dims(x = tbl_13, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
       wb_add_border(dims = wb_dims(x = tbl_13, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
       wb_set_col_widths(cols = seq_len(ncol(tbl_13)), width = "auto")
@@ -751,15 +776,31 @@ apendice_5_PAS151 <- function(
   )
   wb_ap5$styles_mgr$add(header_cellxfs, "header_cellxfs")
   
+  # Tabla predios ----
   tbl_predios <- tabla_predios %>% 
     select(N_Predio, Nom_Predio, Rol, Propietari, Comuna, Provincia, Región) %>% 
     `names<-`(c("N° Predio", "Nombre Predio", "Rol", "Propietario", "Comuna", "Provincia", "Región"))
+  wb_ap5 <- wb_ap5 %>% 
+    wb_add_worksheet("Info.Predios") %>% 
+    wb_add_data(sheet = "Info.Predios", x = tbl_predios, start_col = 1, start_row = 1) %>% 
+    wb_set_cell_style(dims = wb_dims(x = tbl_predios, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
+    wb_add_border(dims = wb_dims(x = tbl_predios, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
+    wb_set_col_widths(cols = seq_len(ncol(tbl_predios)), width = "auto")
   
+  # Tabla superficie predios ----
   tbl_sup_predios <- tabla_predios %>% 
     mutate(Titulo_dominio = "-", SII = "-") %>% 
     select(N_Predio, Titulo_dominio, SII, Sup_ha) %>% 
     `names<-`(c("N° Predio", "Título de dominio", "servicio de Impuestos Internos", "Estudio Técnico")) 
+  wb_ap5 <- wb_ap5 %>% 
+    wb_add_worksheet("Sup.Predios") %>% 
+    wb_add_data(sheet = "Sup.Predios", x = tbl_sup_predios, start_col = 1, start_row = 1) %>% 
+    wb_set_cell_style(dims = wb_dims(x = tbl_sup_predios, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
+    wb_add_border(dims = wb_dims(x = tbl_sup_predios, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
+    wb_add_numfmt(dims = wb_dims(x = tbl_sup_predios, cols = 4, select = "data"), numfmt = "#,##0.00") %>% 
+    wb_set_col_widths(cols = seq_len(ncol(tbl_sup_predios)), width = "auto")
   
+  # Tabla info áreas de corta ----
   tbl_areas <- tabla_areas %>% 
     mutate(SG_SI = "", SG_NO = "", Dist_Area_Prot = "") %>% 
     {if(!"Distancia" %in% names(.)) {
@@ -787,15 +828,48 @@ apendice_5_PAS151 <- function(
     valign(part = "header", valign = "center") %>% 
     align(part = "header", align = "center") %>% 
     bg(bg = "#bcc5d4", part = "header")
+  wb_ap5 <- wb_ap5 %>% 
+    wb_add_worksheet("Áreas") %>% 
+    wb_add_flextable(sheet = "Áreas", ft = tbl_areas, start_col = 1, start_row = 1) 
   
-  estimaciones_x_tipo <- bd_flora %>% 
+  # Tabla densidad y coberturas ----
+  nha_est_x_tipo <- bd_flora %>% 
     select(Tipo_veg, N_Parc, Especie, Nha) %>% 
     split(.$Tipo_veg) %>%
     map(~complete(.,Tipo_veg, N_Parc, Especie, fill = list(Nha = 0))) %>% 
     map(function(x) x %>% group_by(Tipo_veg, Especie) %>% summarise(Nha = mean(Nha, na.rm = T) %>% round()) %>% ungroup()) %>% 
     bind_rows() %>% 
+    mutate_at("Nha", ~as.integer(round_half_up(.))) %>% 
     filter(Nha != 0) %>% 
-    arrange(Tipo_veg, desc(Nha)) %>% suppressMessages()
+    arrange(Tipo_veg, desc(Nha)) %>% 
+    left_join(bd_flora %>% count(Especie, Habito) %>% select(-n)) %>% 
+    suppressMessages() %>% suppressWarnings()
+  
+  cob_est_x_tipo <- bd_flora %>% 
+    select(Tipo_veg, N_Parc, Especie, Habito, Cob_BB) %>% 
+    split(.$Tipo_veg) %>%
+    map(function(x){
+      x %>% 
+        mutate(
+          Cob_ind = case_match(
+            Cob_BB,
+            "r" ~ "1",
+            "+" ~ "3",
+            "1" ~ "<5",
+            "2" ~ "7.5",
+            "3" ~ "10-25",
+            "4" ~ "25-50",
+            "5" ~ "50-75",
+            "6" ~ "75-100",
+            .default = ""
+          )
+        ) %>% 
+        group_by(Tipo_veg, Especie, Habito) %>% 
+        summarise(Cob_ind = str_c(unique(Cob_ind), collapse = "; "), .groups = "drop")
+    }) %>% 
+    bind_rows() %>% 
+    arrange(Tipo_veg) %>% 
+    suppressMessages() %>% suppressWarnings()
   
   nha_ptos <- tabla_areas %>% 
     left_join(
@@ -804,151 +878,134 @@ apendice_5_PAS151 <- function(
     ) %>% 
     filter(Nom_attr %>% str_detect("Parcela")) %>% 
     mutate(
-      nha_x_sp = map(Parcelas, nha_x_sp_fun, bd = bd_flora)
+      nha_x_sp = map(Parcelas, nha_x_sp_fun, bd = bd_flora, add_var = "Habito"),
+      cob_x_sp = map(Parcelas, cob_x_sp_fun, bd = bd_flora)
     ) %>% 
-    select(N_Predio, N_Area, nha_x_sp) %>% 
-    unnest_legacy() %>% arrange(N_Predio, N_Area) %>% suppressMessages() %>% suppressWarnings()
+    mutate_at("cob_x_sp", ~map(., select, -c(Especie, Habito))) %>% 
+    select(N_Predio, N_Rodal, N_Area, nha_x_sp, cob_x_sp) %>% 
+    unnest_legacy() %>% arrange(N_Predio, N_Area) %>% 
+    suppressMessages() %>% suppressWarnings()
   
   nha_est <- tabla_areas %>% 
-    left_join(
-      tabla_attr_rodal %>% 
-        select(N_Rodal, Tipo_veg, Tipo_attr)
-    ) %>% 
-    filter(Tipo_attr == "Estimación") %>%  
-    left_join(estimaciones_x_tipo) %>% 
+    left_join(tabla_attr_rodal) %>% 
+    filter(Tipo_attr == "Estimación", !Nom_attr %>% stri_detect_regex("similar", case_insensitive = T)) %>%  
+    left_join(nha_est_x_tipo) %>% 
+    left_join(cob_est_x_tipo) %>%
     drop_na(Nha) %>% 
-    select(N_Predio, N_Area, Especie, Nha) %>% suppressMessages() %>% suppressWarnings()
+    select(N_Predio, N_Rodal, N_Area, Especie, Habito, Nha, Cob_ind) %>% 
+    suppressMessages() %>% suppressWarnings()
   
   nha_otros <- tabla_areas %>% 
-    left_join(tabla_attr_rodal %>% dplyr::select(N_Rodal, Tipo_veg, Tipo_attr)) %>% 
-    filter(Tipo_veg %in% c(setdiff(unique(rodales$Tipo_veg),unique(bd_flora$Tipo_veg)))) %>% # filtrar areas con tipos vegetacionales sin parcelas
-    mutate(Tipo_veg = "Matorral de Colliguaja odorifera") %>% 
+    left_join(tabla_attr_rodal) %>% 
+    filter(Nom_attr %>% stri_detect_regex("similar", case_insensitive = T)) %>% # filtrar areas con tipos vegetacionales sin parcelas
+    # mutate(Tipo_veg = "Matorral de colliguaja integerrima") %>% 
     mutate(sp = map(Tipo_veg, ~str_trim(str_split_1(str_extract(.,"(?<=de ).*"), "-")))) %>% # identificar sp en estos tipos vegetacionales
-    mutate(nha_x_sp = map2(sp,Tipo_veg, function(x, y){
-      bd1 <- bd_flora %>% 
-        left_join(
-          tabla_attr_rodal %>% 
-            select(N_Rodal, Tipo_veg, Tipo_attr)
-        ) %>% 
-        filter(N_Parc %in% c(
-          bd_flora %>% 
-            filter(Especie %in% x) %>% 
-            group_by(N_Parc, Especie) %>% 
-            tally() %>% 
-            group_by(N_Parc) %>% 
-            filter(n() == length(x)) %>% 
-            .$N_Parc %>% unique()
-        )
-        ) %>% 
-        select(N_Parc, Especie, Nha) %>% 
-        arrange(N_Parc, desc(Nha)) %>%
-        complete(N_Parc, Especie) 
-      bd2 <- bd1 %>% 
-        filter(!Especie %in% c(bd1 %>% filter(is.na(Nha)) %>% .$Especie %>% unique())) %>% 
-        group_by(Especie) %>% 
-        summarise(Nha = mean(Nha) %>% round())
-      return(bd2)
-    })) %>% 
-    select(N_Predio, N_Rodal, N_Area, nha_x_sp) %>%
-    unnest_legacy() 
-  
-  # crear una tabla con las formaciones que se estimaron con otro tipo vegetacional y que parcelas se utilizaron
-  # Considerar en la tabla siguiente si es que hay tipos vegetacionales que no se pudieron estimar dado que tenian una especie que no se encontro en otro tipo vegetacional
-  
-  tbl_8 <- bind_rows(nha_ptos, nha_est, nha_otros %>% select(-N_Rodal)) %>% 
-    arrange(N_Predio, N_Area, Nha) %>% 
-    mutate_at("Nha", as.integer) %>% 
-    left_join(
-      tabla_areas %>% select(N_Rodal, N_Area, Sup_ha)
-    ) %>% 
-    left_join(
-      tabla_attr_rodal %>% 
-        select(N_Rodal, Tipo_fores, Subtipo_fo)
-    ) %>% 
-    mutate_at("Tipo_fores", str_remove, "Tipo Forestal ") %>% 
     mutate(
-      Estructura = "",
-      Estado_desarrollo = "",
-      Estado_fitosanitario = ""
+      bd1 = map(sp, function(x){
+        bd_flora %>% 
+          filter(
+            N_Parc %in% c(
+              bd_flora %>%
+                filter(Especie %in% x) %>%
+                group_by(N_Parc, Especie) %>%
+                tally() %>%
+                group_by(N_Parc) %>%
+                filter(n() == length(x)) %>%
+                .$N_Parc %>% unique()
+            )
+          ) %>% 
+          select(N_Parc, Especie, Nha) %>% 
+          arrange(N_Parc, desc(Nha)) %>%
+          complete(N_Parc, Especie) 
+      }),
+      nha_x_sp = map(bd1, function(x){
+        x %>% 
+          filter(!Especie %in% c(x %>% filter(is.na(Nha)) %>% .$Especie %>% unique())) %>% # Ver si filtrar o no el Nha, porque no debiera haber 
+          group_by(Especie) %>% 
+          summarise(Nha = mean(Nha) %>% round_half_up() %>% as.integer())
+      }),
+      Parcelas = map_chr(bd1, function(x){
+        unique(x$N_Parc) %>% str_c(collapse = ", ")
+      }),
+      cob_x_sp = map(Parcelas, cob_x_sp_fun, bd = bd_flora)
     ) %>% 
-    arrange(N_Predio, N_Area, desc(Nha)) %>% 
-    select(N_Predio, N_Area, Tipo_fores, Subtipo_fo, Sup_ha, Especie, Nha, Estructura, Estado_desarrollo, Estado_fitosanitario) 
+    mutate_at("cob_x_sp", ~map(., select, -c(Especie))) %>% 
+    select(N_Predio, N_Rodal, N_Area, nha_x_sp, cob_x_sp, Tipo_veg, Parcelas) %>%
+    unnest_legacy() %>% 
+    suppressMessages() %>% suppressWarnings()
   
-  stf <- tbl_8 %>% 
-    rowid_to_column("ID") %>% 
-    group_by(Subtipo_fo) %>%
-    slice_min(ID) %>% ungroup() %>% arrange(ID) %>% select(-ID)
-  
-  ft_8 <- tbl_8 %>% 
-    select(-Subtipo_fo) %>% 
-    `names<-`(c("Predio N°", "Área N°", "Tipo forestal", "Superficie (ha)", "Especies dominantes", "Densidad (ind/ha)", "Estructura actual", "Estado de desarrollo", "Estado sanitario")) %>% 
-    flextable() %>% 
-    merge_v(j = c(1:2, 4)) %>% 
-    autofit() %>% 
-    theme_box() %>% 
-    valign(part = "header", valign = "center") %>% 
-    align(part = "header", align = "center") %>% 
-    bg(bg = "#bcc5d4", part = "header")
-  
-  for (i in seq_len(nrow(stf))) {
-    ft_8 <- footnote(
-      ft_8,
-      part = 'body', i = c(which(tbl_8$Subtipo_fo == stf$Subtipo_fo[i])), j = 3,
-      value = as_paragraph(stf$Subtipo_fo[i]),
-      ref_symbols = str_c(rep('*', i), collapse = "")
-    )
+  obs_fun <- function(x){
+    x <- if (is.na(x)) NA else x %>% str_split_1(pattern = "[:punct:]") %>% str_trim()
+    if (is.na(x)) {
+      NA_character_
+    } else if (length(x) == 1) {
+      str_c("Se utilizó la parcela ", x)
+    } else {
+      str_c("Se utilizaron las parcelas: ", str_c(x %>% shQuote(), collapse = ", "))
+    }
   }
   
-  tbl_9 <- tabla_areas %>% 
-    left_join(rodales %>% count(N_Rodal, Tipo_fores, Subtipo_fo) %>% st_drop_geometry()) %>% 
-    mutate(Año = "-", ) %>% 
-    select(N_Predio, N_Area, Sup_ha, Año, Clase_Uso, Tipo_fores, Subtipo_fo) %>% 
-    arrange(N_Predio, N_Area) %>% 
-    mutate_at("N_Area", as.character) %>% 
-    adorn_totals() 
+  tabla_attr_rodal_final <- tabla_attr_rodal %>% 
+    mutate(
+      Nom_attr = case_when(
+        !N_Rodal %in% unique(bind_rows(nha_ptos, nha_est, nha_otros) %>% .$N_Rodal) ~ "Encontrar otro método de estimación",
+        .default = Nom_attr
+      )
+    ) %>% 
+    left_join(nha_otros %>% count(N_Rodal, Parcelas) %>% select(-n)) %>% 
+    mutate(Obs = map_chr(Parcelas, obs_fun)) %>% 
+    select(-Parcelas)
   
-  ft_9 <- tbl_9 %>% select(-Subtipo_fo) %>% 
-    `names<-`(c("Predio N°", "Área a reforestar_N°", "Área a reforestar_Superficie (ha)", "Año", "Clase Capac. Uso", "Tipo forestal y/o especies a eliminar")) %>% 
+  tbl_nha_cob <- bind_rows(nha_ptos, nha_est, nha_otros %>% select(-c(Tipo_veg, Parcelas))) %>% 
+    select(-N_Rodal) %>% 
+    arrange(N_Predio, N_Area, Nha, Cob_ind) %>% 
+    rename(Cobertura = Cob_ind)
+  
+  habitos <- tbl_nha_cob$Habito %>% unique() 
+  
+  for (i in seq_along(habitos)) {
+    tbl_nha <- tbl_nha_cob %>%
+      filter(Habito == habitos[i]) %>% 
+      pivot_wider(names_from = "Habito", values_from = c("Nha", "Cobertura"), names_glue = "{Habito}_{.value}") %>% 
+      arrange(N_Predio, N_Area, Especie) %>% 
+      rename("Predio N°" = 1, "N° Sector" = 2) %>% 
+      rename_at("Especie", ~str_c(habitos[i], "_", .)) %>% 
+      rename_at(vars(contains("Nha")), str_replace, "Nha", "Densidad (Ind/ha)") %>% 
+      rename_at(vars(contains("Cobertura")), str_replace, "Cobertura", "Cobertura (%)") %>% 
+      flextable() %>% 
+      flextable::separate_header(split = "_") %>% 
+      merge_v(j = c(1:2)) %>% 
+      italic(j = 3) %>% 
+      autofit() %>% 
+      theme_box() %>% 
+      valign(part = "header", valign = "center") %>% 
+      align(part = "header", align = "center") %>% 
+      bg(bg = "#bcc5d4", part = "header")
+    wb_ap5 <- wb_ap5 %>% 
+      wb_add_worksheet(sheet = habitos[i]) %>% 
+      wb_add_flextable(sheet = habitos[i], ft = tbl_nha, start_col = 1, start_row = 1) 
+  }
+  
+  # Tabla corta ----
+  tbl_corta <- tabla_areas %>% 
+    mutate(Año = "-", Tipo = "Corta y descepado", Descripcion = "Extracción de ejemplares para instalación de obras", Cob_final = 0) %>% 
+    select(N_Predio, N_Area, Año, Sup_ha, Tipo, Descripcion, Cob_final) %>% 
+    `names<-`(c("Predio N°", "N° Sector", "Año de intervención (ha)", "Superficie a intervenir (ha)", "Tipo de intervención", "Descripción de la intervención", "Cobertura final (%)")) %>% 
     flextable() %>% 
-    flextable::separate_header(split = "_") %>%
+    flextable::separate_header(split = "_") %>% 
     merge_v(j = c(1)) %>% 
     autofit() %>% 
     theme_box() %>% 
     valign(part = "header", valign = "center") %>% 
-    align(part = "header", align = "center") %>%
-    merge_h_range(i = ~`Predio N°` == "Total", j1 = "Predio N°", j2 = "Área a reforestar_N°", part = "body") %>% 
-    align(i = ~`Predio N°` == "Total", j = c(1:2), align = "center") %>% 
-    bg(bg = "#bcc5d4", part = "header")
-  
-  for (i in seq_len(nrow(stf))) {
-    ft_9 <- footnote(
-      ft_9,
-      part = 'body', i = c(which(tbl_9$Subtipo_fo == stf$Subtipo_fo[i])), j = 6,
-      value = as_paragraph(stf$Subtipo_fo[i]),
-      ref_symbols = str_c(rep('*', i), collapse = "")
-    )
-  }
-  
-  tbl_10 <- tabla_areas %>% 
-    group_by(Comuna, Provincia, Región, N_Predio) %>% 
-    summarise(Sup_ha = sum(Sup_ha)) %>% 
-    group_by(Comuna, Provincia, Región) %>% 
-    summarise(N_Predio = n(), Sup_ha = sum(Sup_ha)) %>% 
-    mutate(N_Predio_ref = as.integer(NA), Sup_ha_ref = as.double(NA)) %>% 
-    adorn_totals() %>% 
-    `names<-`(c("Comuna", "Provincia", "Región", "Corta_N° predios", "Corta_Superficie (ha)", "Reforestación_N° predios", "Reforestación_Superficie (ha)")) %>% 
-    flextable() %>% 
-    flextable::separate_header(split = "_") %>%
-    autofit() %>% 
-    merge_h_range(i = ~ Comuna == "Total", j1 = "Comuna", j2 = "Región", part = "body") %>% 
-    theme_box() %>% 
-    valign(part = "header", valign = "center") %>% 
     align(part = "header", align = "center") %>% 
-    align(i = ~ Comuna == "Total", align = "center", j = c(1:3), part = "body") %>% 
-    bg(bg = "#bcc5d4", part = "header")
+    bg(bg = "#bcc5d4", part = "header") 
+  wb_ap5 <- wb_ap5 %>% 
+    wb_add_worksheet(sheet = "Programa_de_actividades") %>% 
+    wb_add_flextable(sheet = "Programa_de_actividades", ft = tbl_nha, start_col = 1, start_row = 1) 
   
+  # Tabla obras ----
   if (!is.null(obras)) {
-    tbl_11 <- areas %>% 
+    tbl_obras <- areas %>% 
       st_intersection(obras %>% select(Tipo, Obra)) %>% 
       count(Tipo, Obra) %>% select(-n) %>% 
       mutate(
@@ -957,21 +1014,26 @@ apendice_5_PAS151 <- function(
       ) %>% 
       st_drop_geometry() %>% 
       janitor::adorn_totals() %>% 
-      `names<-`(c("Tipo de obra", "Obra", "Superficie (ha)", "Superficie (m2)")) %>% 
+      `names<-`(c("Temporalidad de la obra", "Obra", "Superficie (ha)", "Superficie (m2)")) %>% 
       flextable() %>% 
       flextable::separate_header(split = "_") %>%
       autofit() %>% 
       merge_v(j = c(1)) %>% 
-      merge_h_range(i = ~ `Tipo de obra` == "Total", j1 = "Tipo de obra", j2 = "Obra", part = "body") %>% 
+      merge_h_range(i = ~ `Temporalidad de la obra` == "Total", j1 = "Temporalidad de la obra", j2 = "Obra", part = "body") %>% 
       theme_box() %>% 
       colformat_md() %>% 
       valign(part = "header", valign = "center") %>% 
       align(part = "header", align = "center") %>% 
-      align(i = ~ `Tipo de obra` == "Total", align = "center", j = c(1:2), part = "body") %>% 
-      bg(bg = "#bcc5d4", part = "header")
+      align(i = ~ `Temporalidad de la obra` == "Total", align = "center", j = c(1:2), part = "body") %>% 
+      bg(bg = "#bcc5d4", part = "header") %>% 
+      bold(i = ~`Temporalidad de la obra` == "Total", j = c(1:4), bold = TRUE)
+    wb_ap5 <- wb_ap5 %>% 
+      wb_add_worksheet(sheet = "Obras") %>% 
+      wb_add_flextable(sheet = "Obras", ft = tbl_obras, start_col = 1, start_row = 1) 
   }
   
-  tbl_12 <- bd_flora %>% 
+  # Tabla estadisticos ----
+  tbl_estadisticos <- bd_flora %>% 
     group_by(Nom_Predio, N_Rodal, Parcela, N_Parc, UTM_E, UTM_N, Tipo_veg) %>% 
     summarise(Nha = sum(Nha,na.rm = T), .groups = "drop") %>% 
     summarise(
@@ -988,99 +1050,11 @@ apendice_5_PAS151 <- function(
     mutate_all(as.character) %>% 
     pivot_longer(cols = everything(), names_to = "Parámetro", values_to = "Nha Total") %>% 
     mutate_at(2, str_replace, "\\.", "\\,")
+  wb_ap5 <- wb_ap5 %>% 
+    wb_add_worksheet(sheet = "Estadisticos") %>% 
+    wb_add_flextable(sheet = "Estadisticos", ft = tbl_obras, start_col = 1, start_row = 1) 
   
-  if (!is.null(bd_fauna)) {
-    tbl_13 <- bd_fauna %>% 
-      filter(Nombre_cientifico != "Sin registro", Categoria != "-") %>% 
-      select(Nombre_cientifico, matches("utm_"),Categoria, Decreto) %>% 
-      st_as_sf(coords = c("UTM_E","UTM_N"), crs = st_crs(predios), remove = F) %>% 
-      st_intersection(predios %>% select(N_Predio)) %>% 
-      st_drop_geometry() %>% 
-      count(N_Predio, Nombre_cientifico, Categoria, Decreto)
-  }
-  
-  wb <- wb_ap5 %>% 
-    # Tabla Predios
-    wb_add_worksheet("Info.Predios") %>% 
-    wb_add_data(sheet = "Info.Predios", x = tbl_predios, start_col = 1, start_row = 1) %>% 
-    wb_set_cell_style(dims = wb_dims(x = tbl_predios, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
-    wb_add_border(dims = wb_dims(x = tbl_predios, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
-    wb_set_col_widths(cols = seq_len(ncol(tbl_predios)), width = "auto") %>% 
-    # # Tabla Propietarios
-    # wb_add_worksheet("Propietarios") %>% 
-    # wb_add_data(sheet = "Propietarios", x = tbl_1, start_col = 1, start_row = 1) %>% 
-    # wb_set_cell_style(dims = wb_dims(x = tbl_1, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
-    # wb_add_border(dims = wb_dims(x = tbl_1, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
-    # wb_set_col_widths(cols = seq_len(ncol(tbl_1)), width = "auto") %>% 
-    # # Tabla Roles
-    # wb_add_worksheet("Roles") %>% 
-    # wb_add_data(sheet = "Roles", x = tbl_2, start_col = 1, start_row = 1) %>% 
-    # wb_set_cell_style(dims = wb_dims(x = tbl_2, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
-    # wb_add_border(dims = wb_dims(x = tbl_2, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
-  # wb_set_col_widths(cols = seq_len(ncol(tbl_2)), width = "auto") %>% 
-  # # Tabla Localidad
-  # wb_add_worksheet("Localidad") %>% 
-  # wb_add_data(sheet = "Localidad", x = tbl_3, start_col = 1, start_row = 1) %>% 
-  # wb_set_cell_style(dims = wb_dims(x = tbl_3, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
-  # wb_add_border(dims = wb_dims(x = tbl_3, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
-  # wb_set_col_widths(cols = seq_len(ncol(tbl_3)), width = "auto") %>% 
-  
-  # Tabla Superficies
-  wb_add_worksheet("Sup.Predios") %>% 
-    wb_add_data(sheet = "Sup.Predios", x = tbl_4, start_col = 1, start_row = 1) %>% 
-    wb_set_cell_style(dims = wb_dims(x = tbl_4, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
-    wb_add_border(dims = wb_dims(x = tbl_4, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
-    wb_add_numfmt(dims = wb_dims(x = tbl_4, cols = 4, select = "data"), numfmt = "#,##0.00") %>% 
-    wb_set_col_widths(cols = seq_len(ncol(tbl_4)), width = "auto") %>% 
-    # Tabla Suelos
-    wb_add_worksheet("Suelos", grid_lines = F) %>% 
-    wb_add_flextable(sheet = "Suelos", ft = tbl_6, start_col = 1, start_row = 1) %>% 
-    # Tabla Vegetación
-    wb_add_worksheet("Vegetación", grid_lines = F) %>% 
-    wb_add_flextable(sheet = "Vegetación", ft = ft_8, start_col = 1, start_row = 1) %>% 
-    # Tabla Corta
-    wb_add_worksheet("Corta", grid_lines = F) %>% 
-    wb_add_flextable(sheet = "Corta", ft = ft_9, start_col = 1, start_row = 1) %>% 
-    # Tabla Resumen
-    wb_add_worksheet("Resumen", grid_lines = F) %>% 
-    wb_add_flextable(sheet = "Resumen", ft = tbl_10, start_col = 1, start_row = 1) %>%  
-    # tabla Estadisticos
-    wb_add_worksheet("Estadisticos") %>% 
-    wb_add_data(sheet = "Estadisticos", x = tbl_12, start_col = 1, start_row = 1) %>% 
-    wb_set_cell_style(dims = wb_dims(x = tbl_12, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
-    wb_add_border(dims = wb_dims(x = tbl_12, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
-    wb_add_numfmt(dims = wb_dims(x = tbl_12, cols = 2, rows = 4, select = "data"), numfmt = "#,##0.00") %>% 
-    wb_set_col_widths(cols = seq_len(ncol(tbl_12)), width = "auto") 
-  
-  # Tabla Recursos hídricos
-  if (exists("tbl_7")) {
-    wb <- wb %>%
-      wb_add_worksheet("Recursos_hídricos", grid_lines = F) %>% 
-      wb_add_flextable(sheet = "Recursos_hídricos", ft = tbl_7, start_col = 1, start_row = 1)  
-  }
-  # Tabla uso actual
-  if (exists("tbl_5")) {
-    wb <- wb %>% 
-      wb_add_worksheet("Uso_Actual", grid_lines = F) %>% 
-      wb_add_flextable(sheet = "Uso_Actual", ft = tbl_5, start_col = 1, start_row = 1)
-  } 
-  # Tabla fauna
-  if (exists("tbl_13")) {
-    wb <- wb %>% 
-      wb_add_worksheet("BD_Fauna") %>% 
-      wb_add_data(sheet = "Estadisticos", x = tbl_13, start_col = 1, start_row = 1) %>% 
-      wb_set_cell_style(dims = wb_dims(x = tbl_13, select = "col_names"), style = wb_ap5$styles_mgr$get_xf_id("header_cellxfs")) %>% 
-      wb_add_border(dims = wb_dims(x = tbl_13, select = "data"), inner_hgrid = "thin", inner_vgrid = "thin") %>%
-      wb_set_col_widths(cols = seq_len(ncol(tbl_13)), width = "auto")
-  }
-  # Tabla Obras
-  if (exists("tbl_11")) {
-    wb <- wb %>%
-      wb_add_worksheet("Obras", grid_lines = F) %>% 
-      wb_add_flextable(sheet = "Obras", ft = tbl_11, start_col = 1, start_row = 1)
-  }
-  
-  return(wb)
+  return(wb_ap5)
 }
-
+wb_ap5$open()
 

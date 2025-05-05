@@ -526,7 +526,8 @@ shinyServer(function(input,output,session){
       rename_if(names(.) %>% stri_detect_regex("p500", case_insensitive = T), ~ "N_ind") %>% 
       rename_if(names(.) %>% stri_detect_regex("ds.*68", case_insensitive = T), ~ "DS_68") %>% 
       rename_at(vars(matches("^rce"), contains("UTM"), matches("ds_68")), str_to_upper) %>% 
-      mutate_at(vars(contains("Cob_BB")), ~str_trim(str_to_lower(.)))
+      mutate_at(vars(contains("Cob_BB")), ~str_trim(str_to_lower(.))) %>% 
+      mutate_at(vars(matches("Especie")), ~str_trim(str_to_sentence(.)))  
   })
   
   parcelas_rodales <- reactive({
@@ -935,6 +936,24 @@ shinyServer(function(input,output,session){
     }
   })
   
+  observeEvent(input$PAS,{
+    output$bd_fauna_ui <- renderUI({
+      if (input$PAS == 148) {
+        fileInput(
+          inputId = "bd_fauna",
+          label = "Ingresar BD de fauna (opcional)",
+          multiple = F,
+          accept = c(".xlsx"),
+          buttonLabel = "Seleccionar",
+          placeholder = "Archivo no seleccionado"
+        ) %>% 
+          add_help_text(
+            title = "Campos minimos requeridos:\n'Nombre_cientifico', 'UTM_E', 'UTM_N', 'Categoria', 'Decreto'"
+          )
+      }
+    })
+  })
+  
   bd_fauna <- reactive({
     req(input$bd_fauna$datapath)
     read_xlsx(input$bd_fauna$datapath) %>% 
@@ -959,12 +978,22 @@ shinyServer(function(input,output,session){
         tabla_areas = carto_digital()$tabla_areas, 
         tabla_attr_rodal = tabla_attr_rodal(),
         portada = input$portada,
+        provincia = input$provincia,
         carto_uso_actual = carto_digital()$carto_uso_actual, 
         obras = obras_ap5(), 
         bd_fauna = bd_fauna()
       )
     } else {
-      NULL # Ingresar función PAS 151
+      apendice_5_PAS148(
+        bd_flora = parcelas_rodales(), 
+        rodales = rodales_def(), 
+        tabla_predios = carto_digital()$tabla_predios, 
+        tabla_areas = carto_digital()$tabla_areas, 
+        tabla_attr_rodal = tabla_attr_rodal(),
+        portada = input$portada,
+        provincia = input$provincia, 
+        obras = obras_ap5()
+      )
     }
   })
   

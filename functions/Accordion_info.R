@@ -113,6 +113,10 @@ info_dashboard <- function(){
                 "Apéndices",
                 tags$ul(
                   tags$li(
+                    "Corroborar que exista una nomenclatura única en los nombres de las especies y no aparezcan por ejemplo:",
+                    tags$em('Acacia caven'), "y", tags$em('Vachellia caven, Lithrea caustica'), "y", tags$em('Lithraea caustica'),", etc."
+                  ),
+                  tags$li(
                     "Para generar los apéndices 2 y 3 se requiere cargar la capa de rodales, predios y la BD de flora. 
                     Todas estas cargadas previamente para la cartografía digital. 
                     De manera opcional se puede incluir la base de datos de parcelas de cobertura."
