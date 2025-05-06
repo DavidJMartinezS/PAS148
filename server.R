@@ -318,19 +318,10 @@ shinyServer(function(input,output,session){
   })
   
   shp_2 <- eventReactive(input$add_attr,{
-    if (input$add_pend_info) {
-      slope_per <- read_stars(input$dem_help$datapath) %>% 
-        `st_crs<-`(st_crs(shp())) %>% 
-        st_crop(shp() %>% st_buffer(20)) %>% 
-        st_as_stars() %>%
-        starsExtra::slope() %>%
-        {\(x) tan(x * pi / 180) * 100}() %>%
-        extract2.0(v = shp(), mean, na.rm = T, opt = "buffer", buffer = 7) %>% round_half_up(1)
-    }
     shp() %>% 
       {if (input$add_pend_info) {
         .[] %>% 
-          mutate(Pend_media = slope_per) %>%
+          mutate(Pend_media = get_slope(dem = input$dem_help$datapath, shp = shp())) %>%
           {if(input$PAS == 148){
             .[] %>%
               mutate(
@@ -368,8 +359,21 @@ shinyServer(function(input,output,session){
       } else .}
   })
   
+  shp_2_df <- reactive({st_drop_geometry(shp_2())})
+  
+  observeEvent(input$add_attr,{
+    show_modal_spinner(
+      spin = "flower",
+      color = "#35978F",
+      text = div(br(), p("Añadiendo atributos", br(), "Por favor espere un poco"))
+    )
+    req(shp_2())
+    gc(reset = T)
+    remove_modal_spinner()
+  })
+  
   downfile(id = "down_sf", x = shp_2(), name_save = shp_name())
-  downfile(id = "down_xlsx", x = st_drop_geometry(shp_2()), name_save = shp_name())
+  downfile(id = "down_xlsx", x = mtcars, name_save = "mtcars")
   
   # CARTOGRAFIA DIGITAL Y ANEXOS ----
   # AREAS DE CORTA ----

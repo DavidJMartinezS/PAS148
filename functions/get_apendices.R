@@ -1001,7 +1001,7 @@ apendice_5_PAS151 <- function(
     bg(bg = "#bcc5d4", part = "header") 
   wb_ap5 <- wb_ap5 %>% 
     wb_add_worksheet(sheet = "Programa_de_actividades") %>% 
-    wb_add_flextable(sheet = "Programa_de_actividades", ft = tbl_nha, start_col = 1, start_row = 1) 
+    wb_add_flextable(sheet = "Programa_de_actividades", ft = tbl_corta, start_col = 1, start_row = 1) 
   
   # Tabla obras ----
   if (!is.null(obras)) {
@@ -1056,5 +1056,4 @@ apendice_5_PAS151 <- function(
   
   return(wb_ap5)
 }
-wb_ap5$open()
 

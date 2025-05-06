@@ -36,14 +36,14 @@ downfile <- function(id, x, name_save){
     })
     
     output$downfile <- downloadHandler(
-      filename = function(){
-        if(length(filetype()) > 1){
+      filename = function() {
+        if (length(filetype()) > 1) {
           paste0("Archivos_comprimidos",".zip")
         } else {
           paste0(as.character(name_save), if_else(filetype() == "sf", ".zip", ".xlsx"))
         }
       },
-      content = function(file){
+      content = function(file) {
         temp_dir <- tempdir()
         setwd(temp_dir)
         file.remove(list.files(temp_dir))
@@ -57,10 +57,14 @@ downfile <- function(id, x, name_save){
               xlsx = writexl::write_xlsx(x, paste0(file_path_sans_ext(z), ".xlsx"))
             )
           }
-        ) 
+        )
         list_files <- unlist(map(name_save, function(x){list.files(temp_dir, pattern = x)}))
-        zip(zipfile = file, files = list_files)
-        file.remove(list_files)
+        if(file_ext(file) == "zip") {
+          zip(zipfile = file, files = list_files)
+        } else {
+          file.copy(from = list_files, to = file, overwrite = T)
+        }
+        # file.remove(list_files)
       }
     )
   })

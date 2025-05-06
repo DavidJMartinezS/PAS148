@@ -57,6 +57,23 @@ extract2.0 <- function (x, v, fun, opt = "intersect", buffer = 7, progress = TRU
   result[is.nan(result)] = NA
   return(result)
 }
+get_slope <- function (dem, shp) {
+  stopifnot("DEM debe ser un objeto SpatRaster o bien la ruta del archivo" = (class(shp) %in% c("sf", "SpatRaster")) %>% any())
+  stopifnot("DEM debe ser un objeto SpatRaster o bien la ruta del archivo" = (class(dem) %in% c("character", "SpatRaster")) %>% any())
+  if (class(dem) == "character") {
+    stopifnot("ruta del archivo no encontrada" = file.exists(dem))
+  }
+  if ("SpatRaster" %in% class(dem)) dem else terra::rast(dem) %>% 
+    terra::`crs<-`(crs(shp)) %>% 
+    terra::crop(st_buffer(shp, 50)) %>% 
+    terra::terrain(v = "slope", neighbors = 8, unit = "degrees") %>% 
+    {\(x) tan(x * pi / 180) * 100}() %>% 
+    terra::extract(y = shp, touches = T) %>% 
+    dplyr::group_by(ID) %>% 
+    dplyr::summarise(slope = mean(slope)) %>% 
+    dplyr::pull(slope) %>% 
+    janitor::round_half_up(1)
+}
 
 # Funciones para resultados finales 
 get_rod_area <- function(
@@ -396,18 +413,12 @@ cart_rang_pend <- function(PAS, areas, dem, dec_sup = 2, opt = "intersect", buff
   stopifnot(c("Nom_Predio") %in% names(areas) %>% all())
   stopifnot(opt %in% c("intersect", "bbox", "buffer"))
   stopifnot(PAS %in% c(148, 151))
-  stopifnot("DEM debe ser un objeto star o bien la ruta del archivo" = (class(dem) %in% c("character", "stars")) %>% any())
+  stopifnot("DEM debe ser un objeto SpatRaster o bien la ruta del archivo" = (class(dem) %in% c("character", "SpatRaster")) %>% any())
   if (class(dem) == "character") {
     stopifnot("ruta del archivo no encontrada" = file.exists(dem))
   }
 
-  slope_per <- if ("stars" %in% class(dem)) dem else read_stars(dem) %>% 
-    `st_crs<-`(st_crs(areas)) %>%
-    st_crop(areas %>% st_buffer(50)) %>%
-    st_as_stars() %>%
-    starsExtra::slope() %>%
-    {\(x) tan(x * pi / 180) * 100}() %>%
-    extract2.0(v = areas, mean, na.rm = T, opt = opt, buffer = buffer) %>% round_half_up(1)
+  slope_per <- get_slope(dem = dem, shp = areas)
 
   areas %>%
     mutate(
